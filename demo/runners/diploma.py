@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 
-class FaberAgent(AriesAgent):
+class DiplomaAgent(AriesAgent):
     def __init__(
             self,
             ident: str,
@@ -52,7 +52,7 @@ class FaberAgent(AriesAgent):
             ident,
             http_port,
             admin_port,
-            prefix="Faber",
+            prefix="Diploma",
             no_auto=no_auto,
             endorser_role=endorser_role,
             revocation=revocation,
@@ -75,18 +75,15 @@ class FaberAgent(AriesAgent):
         return self._connection_ready.done() and self._connection_ready.result()
 
     def generate_credential_offer(self, aip, cred_type, cred_def_id, exchange_tracing):
-        age = 24
-        d = datetime.date.today()
-        birth_date = datetime.date(d.year - age, d.month, d.day)
-        birth_date_format = "%Y%m%d"
+
         if aip == 10:
+            # JH: Notes: everything here has to be a valid string
             # define attributes to send for credential
             self.cred_attrs[cred_def_id] = {
                 "name": "Alice Smith",
                 "date": "2018-05-28",
                 "degree": "Maths",
-                "birthdate_dateint": birth_date.strftime(birth_date_format),
-                "timestamp": str(int(time.time())),
+                "grade": "1.0",
             }
 
             cred_preview = {
@@ -112,8 +109,7 @@ class FaberAgent(AriesAgent):
                     "name": "Alice Smith",
                     "date": "2018-05-28",
                     "degree": "Maths",
-                    "birthdate_dateint": birth_date.strftime(birth_date_format),
-                    "timestamp": str(int(time.time())),
+                    "grade": "2.0",
                 }
 
                 cred_preview = {
@@ -133,70 +129,32 @@ class FaberAgent(AriesAgent):
                 }
                 return offer_request
 
-            elif cred_type == CRED_FORMAT_JSON_LD:
-                offer_request = {
-                    "connection_id": self.connection_id,
-                    "filter": {
-                        "ld_proof": {
-                            "credential": {
-                                "@context": [
-                                    "https://www.w3.org/2018/credentials/v1",
-                                    "https://w3id.org/citizenship/v1",
-                                    "https://w3id.org/security/bbs/v1",
-                                ],
-                                "type": [
-                                    "VerifiableCredential",
-                                    "PermanentResident",
-                                ],
-                                "id": "https://credential.example.com/residents/1234567890",
-                                "issuer": self.did,
-                                "issuanceDate": "2020-01-01T12:00:00Z",
-                                "credentialSubject": {
-                                    "type": ["PermanentResident"],
-                                    "givenName": "ALICE",
-                                    "familyName": "SMITH",
-                                    "gender": "Female",
-                                    "birthCountry": "Bahamas",
-                                    "birthDate": "1958-07-17",
-                                },
-                            },
-                            "options": {"proofType": SIG_TYPE_BLS},
-                        }
-                    },
-                }
-                return offer_request
-
             else:
                 raise Exception(f"Error invalid credential type: {self.cred_type}")
 
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
-
-
     def generate_proof_request_web_request(
             self, aip, cred_type, revocation, exchange_tracing, connectionless=False
     ):
-        age = 18
-        d = datetime.date.today()
-        birth_date = datetime.date(d.year - age, d.month, d.day)
-        birth_date_format = "%Y%m%d"
+        self.log("genearting proof request body")
         if aip == 10:
             req_attrs = [
                 {
                     "name": "name",
-                    "restrictions": [{"schema_name": "degree schema"}],
+                    "restrictions": [{"schema_name": "diploma schema"}],
                 },
                 {
                     "name": "date",
-                    "restrictions": [{"schema_name": "degree schema"}],
+                    "restrictions": [{"schema_name": "diploma schema"}],
                 },
             ]
             if revocation:
                 req_attrs.append(
                     {
                         "name": "degree",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "diploma schema"}],
                         "non_revoked": {"to": int(time.time() - 1)},
                     },
                 )
@@ -204,7 +162,7 @@ class FaberAgent(AriesAgent):
                 req_attrs.append(
                     {
                         "name": "degree",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "diploma schema"}],
                     }
                 )
             if SELF_ATTESTED:
@@ -214,12 +172,12 @@ class FaberAgent(AriesAgent):
                 )
             req_preds = [
                 # test zero-knowledge proofs
-                {
-                    "name": "birthdate_dateint",
-                    "p_type": "<=",
-                    "p_value": int(birth_date.strftime(birth_date_format)),
-                    "restrictions": [{"schema_name": "degree schema"}],
-                }
+                # {
+                #     "name": "birthdate_dateint",
+                #     "p_type": "<=",
+                #     "p_value": int(birth_date.strftime(birth_date_format)),
+                #     "restrictions": [{"schema_name": "diploma schema"}],
+                # }
             ]
             indy_proof_request = {
                 "name": "Proof of Education",
@@ -228,7 +186,7 @@ class FaberAgent(AriesAgent):
                     f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
                 },
                 "requested_predicates": {
-                    f"0_{req_pred['name']}_GE_uuid": req_pred for req_pred in req_preds
+                    # f"0_{req_pred['name']}_GE_uuid": req_pred for req_pred in req_preds
                 },
             }
 
@@ -248,18 +206,18 @@ class FaberAgent(AriesAgent):
                 req_attrs = [
                     {
                         "name": "name",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "diploma schema"}],
                     },
                     {
                         "name": "date",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "diploma schema"}],
                     },
                 ]
                 if revocation:
                     req_attrs.append(
                         {
                             "name": "degree",
-                            "restrictions": [{"schema_name": "degree schema"}],
+                            "restrictions": [{"schema_name": "diploma schema"}],
                             "non_revoked": {"to": int(time.time() - 1)},
                         },
                     )
@@ -267,7 +225,7 @@ class FaberAgent(AriesAgent):
                     req_attrs.append(
                         {
                             "name": "degree",
-                            "restrictions": [{"schema_name": "degree schema"}],
+                            "restrictions": [{"schema_name": "diploma schema"}],
                         }
                     )
                 if SELF_ATTESTED:
@@ -275,14 +233,17 @@ class FaberAgent(AriesAgent):
                     req_attrs.append(
                         {"name": "self_attested_thing"},
                     )
+
+                self.log(req_attrs)
+                # TODO see how to use this correctly
                 req_preds = [
                     # test zero-knowledge proofs
-                    {
-                        "name": "birthdate_dateint",
-                        "p_type": "<=",
-                        "p_value": int(birth_date.strftime(birth_date_format)),
-                        "restrictions": [{"schema_name": "degree schema"}],
-                    }
+                    # {
+                    #     "name": "grade",
+                    #     "p_type": "<=",
+                    #     "p_value": float("4.0"),
+                    #     "restrictions": [{"schema_name": "diploma schema"}],
+                    # }
                 ]
                 indy_proof_request = {
                     "name": "Proof of Education",
@@ -291,10 +252,11 @@ class FaberAgent(AriesAgent):
                         f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
                     },
                     "requested_predicates": {
-                        f"0_{req_pred['name']}_GE_uuid": req_pred
-                        for req_pred in req_preds
+                        # f"0_{req_pred['name']}_GE_uuid": req_pred
+                        # for req_pred in req_preds
                     },
                 }
+                self.log(indy_proof_request)
 
                 if revocation:
                     indy_proof_request["non_revoked"] = {"to": int(time.time())}
@@ -307,66 +269,6 @@ class FaberAgent(AriesAgent):
                     proof_request_web_request["connection_id"] = self.connection_id
                 return proof_request_web_request
 
-            elif cred_type == CRED_FORMAT_JSON_LD:
-                proof_request_web_request = {
-                    "comment": "test proof request for json-ld",
-                    "presentation_request": {
-                        "dif": {
-                            "options": {
-                                "challenge": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
-                                "domain": "4jt78h47fh47",
-                            },
-                            "presentation_definition": {
-                                "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
-                                "format": {"ldp_vp": {"proof_type": [SIG_TYPE_BLS]}},
-                                "input_descriptors": [
-                                    {
-                                        "id": "citizenship_input_1",
-                                        "name": "EU Driver's License",
-                                        "schema": [
-                                            {
-                                                "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
-                                            },
-                                            {
-                                                "uri": "https://w3id.org/citizenship#PermanentResident"
-                                            },
-                                        ],
-                                        "constraints": {
-                                            "limit_disclosure": "required",
-                                            "is_holder": [
-                                                {
-                                                    "directive": "required",
-                                                    "field_id": [
-                                                        "1f44d55f-f161-4938-a659-f8026467f126"
-                                                    ],
-                                                }
-                                            ],
-                                            "fields": [
-                                                {
-                                                    "id": "1f44d55f-f161-4938-a659-f8026467f126",
-                                                    "path": [
-                                                        "$.credentialSubject.familyName"
-                                                    ],
-                                                    "purpose": "The claim must be from one of the specified person",
-                                                    "filter": {"const": "SMITH"},
-                                                },
-                                                {
-                                                    "path": [
-                                                        "$.credentialSubject.givenName"
-                                                    ],
-                                                    "purpose": "The claim must be from one of the specified person",
-                                                },
-                                            ],
-                                        },
-                                    }
-                                ],
-                            },
-                        }
-                    },
-                }
-                if not connectionless:
-                    proof_request_web_request["connection_id"] = self.connection_id
-                return proof_request_web_request
 
             else:
                 raise Exception(f"Error invalid credential type: {self.cred_type}")
@@ -376,63 +278,62 @@ class FaberAgent(AriesAgent):
 
 
 async def main(args):
-    faber_agent = await create_agent_with_args(args, ident="faber")
+    diploma_agent = await create_agent_with_args(args, ident="diploma")
 
     try:
         log_status(
             "#1 Provision an agent and wallet, get back configuration details"
             + (
-                f" (Wallet type: {faber_agent.wallet_type})"
-                if faber_agent.wallet_type
+                f" (Wallet type: {diploma_agent.wallet_type})"
+                if diploma_agent.wallet_type
                 else ""
             )
         )
-        agent = FaberAgent(
-            "faber.agent",
-            faber_agent.start_port,
-            faber_agent.start_port + 1,
-            genesis_data=faber_agent.genesis_txns,
-            genesis_txn_list=faber_agent.genesis_txn_list,
-            no_auto=faber_agent.no_auto,
-            tails_server_base_url=faber_agent.tails_server_base_url,
-            revocation=faber_agent.revocation,
-            timing=faber_agent.show_timing,
-            multitenant=faber_agent.multitenant,
-            mediation=faber_agent.mediation,
-            wallet_type=faber_agent.wallet_type,
-            seed=faber_agent.seed,
-            aip=faber_agent.aip,
-            endorser_role=faber_agent.endorser_role,
-            anoncreds_legacy_revocation=faber_agent.anoncreds_legacy_revocation,
+        agent = DiplomaAgent(
+            "diploma.agent",
+            diploma_agent.start_port,
+            diploma_agent.start_port + 1,
+            genesis_data=diploma_agent.genesis_txns,
+            genesis_txn_list=diploma_agent.genesis_txn_list,
+            no_auto=diploma_agent.no_auto,
+            tails_server_base_url=diploma_agent.tails_server_base_url,
+            revocation=diploma_agent.revocation,
+            timing=diploma_agent.show_timing,
+            multitenant=diploma_agent.multitenant,
+            mediation=diploma_agent.mediation,
+            wallet_type=diploma_agent.wallet_type,
+            seed=diploma_agent.seed,
+            aip=diploma_agent.aip,
+            endorser_role=diploma_agent.endorser_role,
+            anoncreds_legacy_revocation=diploma_agent.anoncreds_legacy_revocation,
         )
 
-        faber_schema_name = "degree schema"
-        faber_schema_attrs = [
+        diploma_schema_name = "diploma schema"
+        diploma_schema_attrs = [
             "name",
             "date",
             "degree",
-            "birthdate_dateint",
-            "timestamp",
+            "grade",
         ]
-        if faber_agent.cred_type == CRED_FORMAT_INDY:
-            faber_agent.public_did = True
-            await faber_agent.initialize(
+        if diploma_agent.cred_type == CRED_FORMAT_INDY:
+            diploma_agent.public_did = True
+            await diploma_agent.initialize(
                 the_agent=agent,
-                schema_name=faber_schema_name,
-                schema_attrs=faber_schema_attrs,
-                create_endorser_agent=(faber_agent.endorser_role == "author")
-                if faber_agent.endorser_role
+                schema_name=diploma_schema_name,
+                schema_attrs=diploma_schema_attrs,
+                create_endorser_agent=(diploma_agent.endorser_role == "author")
+                if diploma_agent.endorser_role
                 else False,
             )
-        elif faber_agent.cred_type == CRED_FORMAT_JSON_LD:
-            faber_agent.public_did = True
-            await faber_agent.initialize(the_agent=agent)
+        elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
+            diploma_agent.public_did = True
+            await diploma_agent.initialize(the_agent=agent)
         else:
-            raise Exception("Invalid credential type:" + faber_agent.cred_type)
+            raise Exception("Invalid credential type:" + diploma_agent.cred_type)
 
         # generate an invitation for Alice
-        await faber_agent.generate_invitation(
-            display_qr=False, display_invite=True, reuse_connections=faber_agent.reuse_connections, wait=True
+        await diploma_agent.generate_invitation(
+            display_qr=False, display_invite=True, reuse_connections=diploma_agent.reuse_connections, wait=True
         )
 
         exchange_tracing = False
@@ -443,21 +344,21 @@ async def main(args):
             "    (3) Send Message\n"
             "    (4) Create New Invitation\n"
         )
-        if faber_agent.revocation:
+        if diploma_agent.revocation:
             options += (
                 "    (5) Revoke Credential\n"
                 "    (6) Publish Revocations\n"
                 "    (7) Rotate Revocation Registry\n"
                 "    (8) List Revocation Registries\n"
             )
-        if faber_agent.endorser_role and faber_agent.endorser_role == "author":
+        if diploma_agent.endorser_role and diploma_agent.endorser_role == "author":
             options += "    (D) Set Endorser's DID\n"
-        if faber_agent.multitenant:
+        if diploma_agent.multitenant:
             options += "    (W) Create and/or Enable Wallet\n"
         options += "    (T) Toggle tracing on credential/proof exchange\n"
         options += "    (X) Exit?\n[1/2/3/4/{}{}T/X] ".format(
-            "5/6/7/8/" if faber_agent.revocation else "",
-            "W/" if faber_agent.multitenant else "",
+            "5/6/7/8/" if diploma_agent.revocation else "",
+            "W/" if diploma_agent.multitenant else "",
         )
         async for option in prompt_loop(options):
             if option is not None:
@@ -466,43 +367,43 @@ async def main(args):
             if option is None or option in "xX":
                 break
 
-            elif option in "dD" and faber_agent.endorser_role:
+            elif option in "dD" and diploma_agent.endorser_role:
                 endorser_did = await prompt("Enter Endorser's DID: ")
-                await faber_agent.agent.admin_POST(
-                    f"/transactions/{faber_agent.agent.connection_id}/set-endorser-info",
+                await diploma_agent.agent.admin_POST(
+                    f"/transactions/{diploma_agent.agent.connection_id}/set-endorser-info",
                     params={"endorser_did": endorser_did},
                 )
 
-            elif option in "wW" and faber_agent.multitenant:
+            elif option in "wW" and diploma_agent.multitenant:
                 target_wallet_name = await prompt("Enter wallet name: ")
                 include_subwallet_webhook = await prompt(
                     "(Y/N) Create sub-wallet webhook target: "
                 )
                 if include_subwallet_webhook.lower() == "y":
-                    created = await faber_agent.agent.register_or_switch_wallet(
+                    created = await diploma_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
-                        webhook_port=faber_agent.agent.get_new_webhook_port(),
+                        webhook_port=diploma_agent.agent.get_new_webhook_port(),
                         public_did=True,
-                        mediator_agent=faber_agent.mediator_agent,
-                        endorser_agent=faber_agent.endorser_agent,
-                        taa_accept=faber_agent.taa_accept,
+                        mediator_agent=diploma_agent.mediator_agent,
+                        endorser_agent=diploma_agent.endorser_agent,
+                        taa_accept=diploma_agent.taa_accept,
                     )
                 else:
-                    created = await faber_agent.agent.register_or_switch_wallet(
+                    created = await diploma_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
                         public_did=True,
-                        mediator_agent=faber_agent.mediator_agent,
-                        endorser_agent=faber_agent.endorser_agent,
-                        cred_type=faber_agent.cred_type,
-                        taa_accept=faber_agent.taa_accept,
+                        mediator_agent=diploma_agent.mediator_agent,
+                        endorser_agent=diploma_agent.endorser_agent,
+                        cred_type=diploma_agent.cred_type,
+                        taa_accept=diploma_agent.taa_accept,
                     )
                 # create a schema and cred def for the new wallet
                 # TODO check first in case we are switching between existing wallets
                 if created:
                     # TODO this fails because the new wallet doesn't get a public DID
-                    await faber_agent.create_schema_and_cred_def(
-                        schema_name=faber_schema_name,
-                        schema_attrs=faber_schema_attrs,
+                    await diploma_agent.create_schema_and_cred_def(
+                        schema_name=diploma_schema_name,
+                        schema_attrs=diploma_schema_attrs,
                     )
 
             elif option in "tT":
@@ -516,119 +417,121 @@ async def main(args):
             elif option == "1":
                 log_status("#13 Issue credential offer to X")
 
-                if faber_agent.aip == 10:
-                    offer_request = faber_agent.agent.generate_credential_offer(
-                        faber_agent.aip, None, faber_agent.cred_def_id, exchange_tracing
+                if diploma_agent.aip == 10:
+                    log_status("AIP 1.0 not maintained. possibly not supported")
+                    offer_request = diploma_agent.agent.generate_credential_offer(
+                        diploma_agent.aip, None, diploma_agent.cred_def_id, exchange_tracing
                     )
-                    await faber_agent.agent.admin_POST(
+                    await diploma_agent.agent.admin_POST(
                         "/issue-credential/send-offer", offer_request
                     )
 
-                elif faber_agent.aip == 20:
-                    if faber_agent.cred_type == CRED_FORMAT_INDY:
-                        offer_request = faber_agent.agent.generate_credential_offer(
-                            faber_agent.aip,
-                            faber_agent.cred_type,
-                            faber_agent.cred_def_id,
+                elif diploma_agent.aip == 20:
+                    if diploma_agent.cred_type == CRED_FORMAT_INDY:
+                        offer_request = diploma_agent.agent.generate_credential_offer(
+                            diploma_agent.aip,
+                            diploma_agent.cred_type,
+                            diploma_agent.cred_def_id,
                             exchange_tracing,
                         )
 
-                    elif faber_agent.cred_type == CRED_FORMAT_JSON_LD:
-                        offer_request = faber_agent.agent.generate_credential_offer(
-                            faber_agent.aip,
-                            faber_agent.cred_type,
+                    elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
+                        offer_request = diploma_agent.agent.generate_credential_offer(
+                            diploma_agent.aip,
+                            diploma_agent.cred_type,
                             None,
                             exchange_tracing,
                         )
 
                     else:
                         raise Exception(
-                            f"Error invalid credential type: {faber_agent.cred_type}"
+                            f"Error invalid credential type: {diploma_agent.cred_type}"
                         )
 
-                    await faber_agent.agent.admin_POST(
+                    await diploma_agent.agent.admin_POST(
                         "/issue-credential-2.0/send-offer", offer_request
                     )
 
                 else:
-                    raise Exception(f"Error invalid AIP level: {faber_agent.aip}")
+                    raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
 
             elif option == "2":
                 log_status("#20 Request proof of degree from alice")
-                if faber_agent.aip == 10:
+                if diploma_agent.aip == 10:
+
+                    log_status("AIP 1.0 not maintained. possibly not supported")
                     proof_request_web_request = (
-                        faber_agent.agent.generate_proof_request_web_request(
-                            faber_agent.aip,
-                            faber_agent.cred_type,
-                            faber_agent.revocation,
+                        diploma_agent.agent.generate_proof_request_web_request(
+                            diploma_agent.aip,
+                            diploma_agent.cred_type,
+                            diploma_agent.revocation,
                             exchange_tracing,
                         )
                     )
-                    await faber_agent.agent.admin_POST(
+                    await diploma_agent.agent.admin_POST(
                         "/present-proof/send-request", proof_request_web_request
                     )
                     pass
 
-                elif faber_agent.aip == 20:
-                    if faber_agent.cred_type == CRED_FORMAT_INDY:
+                elif diploma_agent.aip == 20:
+                    if diploma_agent.cred_type == CRED_FORMAT_INDY:
                         proof_request_web_request = (
-                            faber_agent.agent.generate_proof_request_web_request(
-                                faber_agent.aip,
-                                faber_agent.cred_type,
-                                faber_agent.revocation,
+                            diploma_agent.agent.generate_proof_request_web_request(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
                                 exchange_tracing,
                             )
                         )
 
-                    elif faber_agent.cred_type == CRED_FORMAT_JSON_LD:
+                    elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
                         proof_request_web_request = (
-                            faber_agent.agent.generate_proof_request_web_request(
-                                faber_agent.aip,
-                                faber_agent.cred_type,
-                                faber_agent.revocation,
+                            diploma_agent.agent.generate_proof_request_web_request(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
                                 exchange_tracing,
                             )
                         )
 
                     else:
                         raise Exception(
-                            "Error invalid credential type:" + faber_agent.cred_type
+                            "Error invalid credential type:" + diploma_agent.cred_type
                         )
 
-                    log_status("#20X call send request endpoint")
                     await agent.admin_POST(
                         "/present-proof-2.0/send-request", proof_request_web_request
                     )
 
                 else:
-                    raise Exception(f"Error invalid AIP level: {faber_agent.aip}")
+                    raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
 
             elif option == "2a":
                 log_status("#20 Request * Connectionless * proof of degree from alice")
-                if faber_agent.aip == 10:
+                if diploma_agent.aip == 10:
                     proof_request_web_request = (
-                        faber_agent.agent.generate_proof_request_web_request(
-                            faber_agent.aip,
-                            faber_agent.cred_type,
-                            faber_agent.revocation,
+                        diploma_agent.agent.generate_proof_request_web_request(
+                            diploma_agent.aip,
+                            diploma_agent.cred_type,
+                            diploma_agent.revocation,
                             exchange_tracing,
                             connectionless=True,
                         )
                     )
-                    proof_request = await faber_agent.agent.admin_POST(
+                    proof_request = await diploma_agent.agent.admin_POST(
                         "/present-proof/create-request", proof_request_web_request
                     )
                     pres_req_id = proof_request["presentation_exchange_id"]
                     url = (
-                        os.getenv("WEBHOOK_TARGET")
-                        or (
-                            "http://"
-                            + os.getenv("DOCKERHOST").replace(
-                                "{PORT}", str(faber_agent.agent.admin_port + 1)
-                            )
-                            + "/webhooks"
-                        )
-                    ) + f"/pres_req/{pres_req_id}/"
+                                  os.getenv("WEBHOOK_TARGET")
+                                  or (
+                                          "http://"
+                                          + os.getenv("DOCKERHOST").replace(
+                                      "{PORT}", str(diploma_agent.agent.admin_port + 1)
+                                  )
+                                          + "/webhooks"
+                                  )
+                          ) + f"/pres_req/{pres_req_id}/"
                     log_msg(f"Proof request url: {url}")
                     qr = QRCode(border=1)
                     qr.add_data(url)
@@ -637,44 +540,44 @@ async def main(args):
                     )
                     qr.print_ascii(invert=True)
 
-                elif faber_agent.aip == 20:
-                    if faber_agent.cred_type == CRED_FORMAT_INDY:
+                elif diploma_agent.aip == 20:
+                    if diploma_agent.cred_type == CRED_FORMAT_INDY:
                         proof_request_web_request = (
-                            faber_agent.agent.generate_proof_request_web_request(
-                                faber_agent.aip,
-                                faber_agent.cred_type,
-                                faber_agent.revocation,
+                            diploma_agent.agent.generate_proof_request_web_request(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
                                 exchange_tracing,
                                 connectionless=True,
                             )
                         )
-                    elif faber_agent.cred_type == CRED_FORMAT_JSON_LD:
+                    elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
                         proof_request_web_request = (
-                            faber_agent.agent.generate_proof_request_web_request(
-                                faber_agent.aip,
-                                faber_agent.cred_type,
-                                faber_agent.revocation,
+                            diploma_agent.agent.generate_proof_request_web_request(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
                                 exchange_tracing,
                                 connectionless=True,
                             )
                         )
                     else:
                         raise Exception(
-                            "Error invalid credential type:" + faber_agent.cred_type
+                            "Error invalid credential type:" + diploma_agent.cred_type
                         )
 
-                    proof_request = await faber_agent.agent.admin_POST(
+                    proof_request = await diploma_agent.agent.admin_POST(
                         "/present-proof-2.0/create-request", proof_request_web_request
                     )
                     pres_req_id = proof_request["pres_ex_id"]
                     url = (
-                        "http://"
-                        + os.getenv("DOCKERHOST").replace(
-                            "{PORT}", str(faber_agent.agent.admin_port + 1)
-                        )
-                        + "/webhooks/pres_req/"
-                        + pres_req_id
-                        + "/"
+                            "http://"
+                            + os.getenv("DOCKERHOST").replace(
+                        "{PORT}", str(diploma_agent.agent.admin_port + 1)
+                    )
+                            + "/webhooks/pres_req/"
+                            + pres_req_id
+                            + "/"
                     )
                     log_msg(f"Proof request url: {url}")
                     qr = QRCode(border=1)
@@ -684,12 +587,12 @@ async def main(args):
                     )
                     qr.print_ascii(invert=True)
                 else:
-                    raise Exception(f"Error invalid AIP level: {faber_agent.aip}")
+                    raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
 
             elif option == "3":
                 msg = await prompt("Enter message: ")
-                await faber_agent.agent.admin_POST(
-                    f"/connections/{faber_agent.agent.connection_id}/send-message",
+                await diploma_agent.agent.admin_POST(
+                    f"/connections/{diploma_agent.agent.connection_id}/send-message",
                     {"content": msg},
                 )
 
@@ -698,27 +601,27 @@ async def main(args):
                     "Creating a new invitation, please receive "
                     "and accept this invitation using Alice agent"
                 )
-                await faber_agent.generate_invitation(
+                await diploma_agent.generate_invitation(
                     display_invite=True,
                     display_qr=False,
-                    reuse_connections=faber_agent.reuse_connections,
+                    reuse_connections=diploma_agent.reuse_connections,
                     wait=True,
                 )
 
-            elif option == "5" and faber_agent.revocation:
+            elif option == "5" and diploma_agent.revocation:
                 rev_reg_id = (await prompt("Enter revocation registry ID: ")).strip()
                 cred_rev_id = (await prompt("Enter credential revocation ID: ")).strip()
                 publish = (
                               await prompt("Publish now? [Y/N]: ", default="N")
                           ).strip() in "yY"
                 try:
-                    await faber_agent.agent.admin_POST(
+                    await diploma_agent.agent.admin_POST(
                         "/revocation/revoke",
                         {
                             "rev_reg_id": rev_reg_id,
                             "cred_rev_id": cred_rev_id,
                             "publish": publish,
-                            "connection_id": faber_agent.agent.connection_id,
+                            "connection_id": diploma_agent.agent.connection_id,
                             # leave out thread_id, let aca-py generate
                             # "thread_id": "12345678-4444-4444-4444-123456789012",
                             "comment": "Revocation reason goes here ...",
@@ -727,12 +630,12 @@ async def main(args):
                 except ClientError:
                     pass
 
-            elif option == "6" and faber_agent.revocation:
+            elif option == "6" and diploma_agent.revocation:
                 try:
-                    resp = await faber_agent.agent.admin_POST(
+                    resp = await diploma_agent.agent.admin_POST(
                         "/revocation/publish-revocations", {}
                     )
-                    faber_agent.agent.log(
+                    diploma_agent.agent.log(
                         "Published revocations for {} revocation registr{} {}".format(
                             len(resp["rrid2crid"]),
                             "y" if len(resp["rrid2crid"]) == 1 else "ies",
@@ -741,21 +644,21 @@ async def main(args):
                     )
                 except ClientError:
                     pass
-            elif option == "7" and faber_agent.revocation:
+            elif option == "7" and diploma_agent.revocation:
                 try:
-                    resp = await faber_agent.agent.admin_POST(
-                        f"/revocation/active-registry/{faber_agent.cred_def_id}/rotate",
+                    resp = await diploma_agent.agent.admin_POST(
+                        f"/revocation/active-registry/{diploma_agent.cred_def_id}/rotate",
                         {},
                     )
-                    faber_agent.agent.log(
+                    diploma_agent.agent.log(
                         "Rotated registries for {}. Decommissioned Registries: {}".format(
-                            faber_agent.cred_def_id,
+                            diploma_agent.cred_def_id,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
                         )
                     )
                 except ClientError:
                     pass
-            elif option == "8" and faber_agent.revocation:
+            elif option == "8" and diploma_agent.revocation:
                 states = [
                     "init",
                     "generated",
@@ -773,11 +676,11 @@ async def main(args):
                 if state not in states:
                     state = "active"
                 try:
-                    resp = await faber_agent.agent.admin_GET(
+                    resp = await diploma_agent.agent.admin_GET(
                         "/revocation/registries/created",
                         params={"state": state},
                     )
-                    faber_agent.agent.log(
+                    diploma_agent.agent.log(
                         "Registries (state = '{}'): {}".format(
                             state,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
@@ -786,14 +689,14 @@ async def main(args):
                 except ClientError:
                     pass
 
-        if faber_agent.show_timing:
-            timing = await faber_agent.agent.fetch_timing()
+        if diploma_agent.show_timing:
+            timing = await diploma_agent.agent.fetch_timing()
             if timing:
-                for line in faber_agent.agent.format_timing(timing):
+                for line in diploma_agent.agent.format_timing(timing):
                     log_msg(line)
 
     finally:
-        terminated = await faber_agent.terminate()
+        terminated = await diploma_agent.terminate()
 
     await asyncio.sleep(0.1)
 
@@ -802,7 +705,7 @@ async def main(args):
 
 
 if __name__ == "__main__":
-    parser = arg_parser(ident="faber", port=8020)
+    parser = arg_parser(ident="diploma", port=8070)
     args = parser.parse_args()
 
     ENABLE_PYDEVD_PYCHARM = os.getenv("ENABLE_PYDEVD_PYCHARM", "").lower()
@@ -820,7 +723,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Faber remote debugging to "
+                "Faber(diploma) remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(

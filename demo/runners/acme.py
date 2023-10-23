@@ -5,6 +5,14 @@ import os
 import sys
 from aiohttp import ClientError
 
+import random
+
+from datetime import date
+from uuid import uuid4
+
+TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
+CRED_PREVIEW_TYPE = "https://didcomm.org/issue-credential/2.0/credential-preview"
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
 from runners.agent_container import (  # noqa:E402
@@ -21,7 +29,6 @@ from runners.support.utils import (  # noqa:E402
     prompt_loop,
 )
 
-
 CRED_PREVIEW_TYPE = "https://didcomm.org/issue-credential/2.0/credential-preview"
 SELF_ATTESTED = os.getenv("SELF_ATTESTED")
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
@@ -32,12 +39,12 @@ LOGGER = logging.getLogger(__name__)
 
 class AcmeAgent(AriesAgent):
     def __init__(
-        self,
-        ident: str,
-        http_port: int,
-        admin_port: int,
-        no_auto: bool = False,
-        **kwargs,
+            self,
+            ident: str,
+            http_port: int,
+            admin_port: int,
+            no_auto: bool = False,
+            **kwargs,
     ):
         super().__init__(
             ident,
@@ -72,9 +79,9 @@ class AcmeAgent(AriesAgent):
             print(self.ident, "set connection id", conn_id)
             self.connection_id = conn_id
         if (
-            message["connection_id"] == self.connection_id
-            and message["rfc23_state"] == "completed"
-            and (self._connection_ready and not self._connection_ready.done())
+                message["connection_id"] == self.connection_id
+                and message["rfc23_state"] == "completed"
+                and (self._connection_ready and not self._connection_ready.done())
         ):
             self.log("Connected")
             self._connection_ready.set_result(True)
@@ -90,8 +97,12 @@ class AcmeAgent(AriesAgent):
         self.log(f"Credential: state = {state}, cred_ex_id = {cred_ex_id}")
 
         if state == "request-received":
-            # TODO issue credentials based on offer preview in cred ex record
-            pass
+            # issue credentials based on offer preview in cred ex record
+            if not message.get("auto_issue"):
+                await self.admin_POST(
+                    f"/issue-credential-2.0/records/{cred_ex_id}/issue",
+                    {"comment": f"Issuing credential, exchange {cred_ex_id}"},
+                )
 
     async def handle_issue_credential_v2_0_indy(self, message):
         pass  # employee id schema does not support revocation
@@ -102,11 +113,72 @@ class AcmeAgent(AriesAgent):
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
         if state == "presentation-received":
-            # TODO handle received presentations
-            pass
+            #  handle received presentations
+            log_status("#27 Process the proof provided by X")
+            log_status("#28 Check if proof is valid")
+            proof = await self.admin_POST(
+                f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
+            )
+            self.log("Proof = ", proof["verified"])
+
+            # if presentation is a degree schema (proof of education),
+            # check values received
+            pres_req = message["by_format"]["pres_request"]["indy"]
+            pres = message["by_format"]["pres"]["indy"]
+            is_proof_of_education = (
+                    pres_req["name"] == "Proof of Education"
+            )
+            if is_proof_of_education:
+                log_status("#28.1 Received proof of education, check claims")
+                for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                    if referent in pres['requested_proof']['revealed_attrs']:
+                        self.log(
+                            f"{attr_spec['name']}: "
+                            f"{pres['requested_proof']['revealed_attrs'][referent]['raw']}"
+                        )
+                    else:
+                        self.log(
+                            f"{attr_spec['name']}: "
+                            "(attribute not revealed)"
+                        )
+                for id_spec in pres["identifiers"]:
+                    # just print out the schema/cred def id's of presented claims
+                    self.log(f"schema_id: {id_spec['schema_id']}")
+                    self.log(f"cred_def_id {id_spec['cred_def_id']}")
+                # TODO placeholder for the next step
+            else:
+                # in case there are any other kinds of proofs received
+                self.log("#28.1 Received ", pres_req["name"])
 
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
+
+
+async def offer_credential(agent,cred_def_id):
+    log_status("#13 Issue credential offer to X")
+    # credential offers
+    agent.cred_attrs[cred_def_id] = {
+        "employee_id": "ACME0009",
+        "name": "Alice Smith",
+        "date": date.isoformat(date.today()),
+        "position": "CEO"
+    }
+    cred_preview = {
+        "@type": CRED_PREVIEW_TYPE,
+        "attributes": [
+            {"name": n, "value": v}
+            for (n, v) in agent.cred_attrs[cred_def_id].items()
+        ],
+    }
+    offer_request = {
+        "connection_id": agent.connection_id,
+        "comment": f"Offer on cred def id {cred_def_id}",
+        "credential_preview": cred_preview,
+        "filter": {"indy": {"cred_def_id": cred_def_id}},
+    }
+    await agent.admin_POST(
+        "/issue-credential-2.0/send-offer", offer_request
+    )
 
 
 async def main(args):
@@ -137,18 +209,36 @@ async def main(args):
         )
 
         acme_agent.public_did = True
-        # acme_schema_name = "employee id schema"
-        # acme_schema_attrs = ["employee_id", "name", "date", "position"]
+        acme_schema_name = "employee id schema"
+        acme_schema_attrs = ["employee_id", "name", "date", "position"]
         await acme_agent.initialize(
             the_agent=agent,
-            # schema_name=acme_schema_name,
-            # schema_attrs=acme_schema_attrs,
+            schema_name=acme_schema_name,
+            schema_attrs=acme_schema_attrs,
         )
 
-        # TODO publish schema and cred def
+        # publish schema and cred def
+        with log_timer("Publish schema and cred def duration:"):
+            # define schema
+            version = format(
+                "%d.%d.%d"
+                % (
+                    random.randint(1, 101),
+                    random.randint(1, 101),
+                    random.randint(1, 101),
+                )
+            )
+            # register schema and cred def
+            (schema_id, cred_def_id) = await agent.register_schema_and_creddef(
+                "employee id schema",
+                version,
+                ["employee_id", "name", "date", "position"],
+                support_revocation=False,
+                revocation_registry_size=TAILS_FILE_COUNT,
+            )
 
         # generate an invitation for Alice
-        await acme_agent.generate_invitation(display_qr=True, wait=True)
+        await acme_agent.generate_invitation(display_invite=True,display_qr=False, wait=True)
 
         options = (
             "    (1) Issue Credential\n"
@@ -165,12 +255,48 @@ async def main(args):
                 break
 
             elif option == "1":
-                log_status("#13 Issue credential offer to X")
-                # TODO credential offers
+                log_status("option 1 selected, calling function")
+                await offer_credential(agent, cred_def_id)
 
             elif option == "2":
                 log_status("#20 Request proof of degree from alice")
-                # TODO presentation requests
+                #  presentation requests
+                req_attrs = [
+                    {
+                        "name": "name",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "date",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "degree",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    }
+                ]
+                req_preds = []
+                indy_proof_request = {
+                    "name": "Proof of Education",
+                    "version": "1.0",
+                    "nonce": str(uuid4().int),
+                    "requested_attributes": {
+                        f"0_{req_attr['name']}_uuid": req_attr
+                        for req_attr in req_attrs
+                    },
+                    "requested_predicates": {}
+                }
+                proof_request_web_request = {
+                    "connection_id": agent.connection_id,
+                    "presentation_request": {"indy": indy_proof_request},
+                }
+                # this sends the request to our agent, which forwards it to Alice
+                # (based on the connection_id)
+                await agent.admin_POST(
+                    "/present-proof-2.0/send-request",
+                    proof_request_web_request
+                )
+                await offer_credential(agent, cred_def_id)
 
             elif option == "3":
                 msg = await prompt("Enter message: ")

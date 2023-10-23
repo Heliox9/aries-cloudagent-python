@@ -34,7 +34,6 @@ from runners.support.utils import (  # noqa:E402
     log_timer,
 )
 
-
 CRED_PREVIEW_TYPE = "https://didcomm.org/issue-credential/2.0/credential-preview"
 SELF_ATTESTED = os.getenv("SELF_ATTESTED")
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
@@ -45,18 +44,18 @@ LOGGER = logging.getLogger(__name__)
 
 class AriesAgent(DemoAgent):
     def __init__(
-        self,
-        ident: str,
-        http_port: int,
-        admin_port: int,
-        prefix: str = "Aries",
-        no_auto: bool = False,
-        seed: str = None,
-        aip: int = 20,
-        endorser_role: str = None,
-        revocation: bool = False,
-        anoncreds_legacy_revocation: str = None,
-        **kwargs,
+            self,
+            ident: str,
+            http_port: int,
+            admin_port: int,
+            prefix: str = "Aries",
+            no_auto: bool = False,
+            seed: str = None,
+            aip: int = 20,
+            endorser_role: str = None,
+            revocation: bool = False,
+            anoncreds_legacy_revocation: str = None,
+            **kwargs,
     ):
         extra_args = []
         if not no_auto:
@@ -330,9 +329,9 @@ class AriesAgent(DemoAgent):
                 )
                 if credentials:
                     for row in sorted(
-                        credentials,
-                        key=lambda c: int(c["cred_info"]["attrs"]["timestamp"]),
-                        reverse=True,
+                            credentials,
+                            key=lambda c: int(c["cred_info"]["attrs"]["timestamp"]),
+                            reverse=True,
                     ):
                         for referent in row["presentation_referents"]:
                             if referent not in credentials_by_reft:
@@ -391,7 +390,10 @@ class AriesAgent(DemoAgent):
             self.log("Problem report message:", message.get("error_msg"))
 
     async def handle_present_proof_v2_0(self, message):
+
+        log_status("Agent level: handling proof aip 2.0")
         state = message.get("state")
+        #self.log(f"full message: {message}")
         pres_ex_id = message["pres_ex_id"]
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
@@ -502,7 +504,7 @@ class AriesAgent(DemoAgent):
 
                         for record in records:
                             if self.check_input_descriptor_record_id(
-                                input_descriptor_schema_uri, record
+                                    input_descriptor_schema_uri, record
                             ):
                                 record_id = record["record_id"]
                                 dif_request["dif"]["record_ids"][
@@ -550,6 +552,7 @@ class AriesAgent(DemoAgent):
             proof = await self.admin_POST(
                 f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
             )
+            #self.log("full Proof :", proof)
             self.log("Proof =", proof["verified"])
             self.last_proof_received = proof
 
@@ -567,12 +570,13 @@ class AriesAgent(DemoAgent):
         self.log("Received revocation notification message:", message)
 
     async def generate_invitation(
-        self,
-        use_did_exchange: bool,
-        auto_accept: bool = True,
-        display_qr: bool = False,
-        reuse_connections: bool = False,
-        wait: bool = False,
+            self,
+            use_did_exchange: bool,
+            auto_accept: bool = True,
+            display_invite: bool = False,
+            display_qr: bool = False,
+            reuse_connections: bool = False,
+            wait: bool = False,
     ):
         self._connection_ready = asyncio.Future()
         with log_timer("Generate invitation duration:"):
@@ -586,15 +590,19 @@ class AriesAgent(DemoAgent):
                 reuse_connections=reuse_connections,
             )
 
+        if display_invite:
+            log_msg(
+                "Use the following JSON to accept the invite from another demo agent."
+            )
+            log_msg(
+                json.dumps(invi_rec["invitation"]), label="Invitation Data:", color=None
+            )
+
         if display_qr:
             qr = QRCode(border=1)
             qr.add_data(invi_rec["invitation_url"])
             log_msg(
-                "Use the following JSON to accept the invite from another demo agent."
                 " Or use the QR code to connect from a mobile agent."
-            )
-            log_msg(
-                json.dumps(invi_rec["invitation"]), label="Invitation Data:", color=None
             )
             qr.print_ascii(invert=True)
 
@@ -615,7 +623,7 @@ class AriesAgent(DemoAgent):
             await self.detect_connection()
 
     async def create_schema_and_cred_def(
-        self, schema_name, schema_attrs, revocation, version=None
+            self, schema_name, schema_attrs, revocation, version=None
     ):
         with log_timer("Publish schema/cred def duration:"):
             log_status("#3/4 Create a new schema/cred def on the ledger")
@@ -641,7 +649,7 @@ class AriesAgent(DemoAgent):
             return cred_def_id
 
     def check_input_descriptor_record_id(
-        self, input_descriptor_schema_uri, record
+            self, input_descriptor_schema_uri, record
     ) -> bool:
         result = False
         for uri in input_descriptor_schema_uri:
@@ -656,29 +664,29 @@ class AriesAgent(DemoAgent):
 
 class AgentContainer:
     def __init__(
-        self,
-        ident: str,
-        start_port: int,
-        prefix: str = None,
-        no_auto: bool = False,
-        revocation: bool = False,
-        genesis_txns: str = None,
-        genesis_txn_list: str = None,
-        tails_server_base_url: str = None,
-        cred_type: str = CRED_FORMAT_INDY,
-        show_timing: bool = False,
-        multitenant: bool = False,
-        mediation: bool = False,
-        use_did_exchange: bool = False,
-        wallet_type: str = None,
-        public_did: bool = True,
-        seed: str = "random",
-        aip: int = 20,
-        arg_file: str = None,
-        endorser_role: str = None,
-        reuse_connections: bool = False,
-        taa_accept: bool = False,
-        anoncreds_legacy_revocation: str = None,
+            self,
+            ident: str,
+            start_port: int,
+            prefix: str = None,
+            no_auto: bool = False,
+            revocation: bool = False,
+            genesis_txns: str = None,
+            genesis_txn_list: str = None,
+            tails_server_base_url: str = None,
+            cred_type: str = CRED_FORMAT_INDY,
+            show_timing: bool = False,
+            multitenant: bool = False,
+            mediation: bool = False,
+            use_did_exchange: bool = False,
+            wallet_type: str = None,
+            public_did: bool = True,
+            seed: str = "random",
+            aip: int = 20,
+            arg_file: str = None,
+            endorser_role: str = None,
+            reuse_connections: bool = False,
+            taa_accept: bool = False,
+            anoncreds_legacy_revocation: str = None,
     ):
         # configuration parameters
         self.genesis_txns = genesis_txns
@@ -717,11 +725,11 @@ class AgentContainer:
         self.taa_accept = taa_accept
 
     async def initialize(
-        self,
-        the_agent: DemoAgent = None,
-        schema_name: str = None,
-        schema_attrs: list = None,
-        create_endorser_agent: bool = False,
+            self,
+            the_agent: DemoAgent = None,
+            schema_name: str = None,
+            schema_attrs: list = None,
+            create_endorser_agent: bool = False,
     ):
         """Startup agent(s), register DID, schema, cred def as appropriate."""
 
@@ -801,7 +809,7 @@ class AgentContainer:
             await self.agent.register_or_switch_wallet(
                 self.ident + ".initial." + rand_name,
                 public_did=self.public_did
-                and ((not self.endorser_role) or (not self.endorser_role == "author")),
+                           and ((not self.endorser_role) or (not self.endorser_role == "author")),
                 webhook_port=None,
                 mediator_agent=self.mediator_agent,
                 endorser_agent=self.endorser_agent,
@@ -812,13 +820,13 @@ class AgentContainer:
                 # we need to pre-connect the agent to its mediator
                 self.agent.log("Connect wallet to mediator ...")
                 if not await connect_wallet_to_mediator(
-                    self.agent, self.mediator_agent
+                        self.agent, self.mediator_agent
                 ):
                     raise Exception("Mediation setup FAILED :-(")
             if self.endorser_agent:
                 self.agent.log("Connect wallet to endorser ...")
                 if not await connect_wallet_to_endorser(
-                    self.agent, self.endorser_agent
+                        self.agent, self.endorser_agent
                 ):
                     raise Exception("Endorser setup FAILED :-(")
         if self.taa_accept:
@@ -826,9 +834,9 @@ class AgentContainer:
 
         # if we are an author, create our public DID here ...
         if (
-            self.endorser_role
-            and self.endorser_role == "author"
-            and self.endorser_agent
+                self.endorser_role
+                and self.endorser_role == "author"
+                and self.endorser_agent
         ):
             if self.public_did and self.cred_type != CRED_FORMAT_JSON_LD:
                 new_did = await self.agent.admin_POST("/wallet/did/create")
@@ -855,10 +863,10 @@ class AgentContainer:
             )
 
     async def create_schema_and_cred_def(
-        self,
-        schema_name: str,
-        schema_attrs: list,
-        version: str = None,
+            self,
+            schema_name: str,
+            schema_attrs: list,
+            version: str = None,
     ):
         if not self.public_did:
             raise Exception("Can't create a schema/cred def without a public DID :-(")
@@ -876,9 +884,9 @@ class AgentContainer:
             raise Exception("Invalid credential type:" + self.cred_type)
 
     async def issue_credential(
-        self,
-        cred_def_id: str,
-        cred_attrs: list,
+            self,
+            cred_def_id: str,
+            cred_attrs: list,
     ):
         log_status("#13 Issue credential offer to X")
 
@@ -910,9 +918,9 @@ class AgentContainer:
             raise Exception("Invalid credential type:" + self.cred_type)
 
     async def receive_credential(
-        self,
-        cred_def_id: str,
-        cred_attrs: list,
+            self,
+            cred_def_id: str,
+            cred_attrs: list,
     ):
         await asyncio.sleep(1.0)
 
@@ -938,6 +946,11 @@ class AgentContainer:
                 matched = False
 
         return matched
+
+    async def show_credentials(self):
+        log_status(f"View Stored credentials in wallet")
+        resp = await self.admin_GET(f"/credentials")
+        log_json(resp, label="Credentials:")
 
     async def request_proof(self, proof_request, explicit_revoc_required: bool = False):
         log_status("#20 Request proof of degree from alice")
@@ -1057,15 +1070,17 @@ class AgentContainer:
         return terminated
 
     async def generate_invitation(
-        self,
-        auto_accept: bool = True,
-        display_qr: bool = False,
-        reuse_connections: bool = False,
-        wait: bool = False,
+            self,
+            auto_accept: bool = True,
+            display_invite: bool = False,
+            display_qr: bool = False,
+            reuse_connections: bool = False,
+            wait: bool = False,
     ):
         return await self.agent.generate_invitation(
             self.use_did_exchange,
             auto_accept=auto_accept,
+            display_invite=display_invite,
             display_qr=display_qr,
             reuse_connections=reuse_connections,
             wait=wait,
@@ -1316,7 +1331,7 @@ async def create_agent_with_args(args, ident: str = None):
     if ("revocation" in args and args.revocation) and not tails_server_base_url:
         # assume we're running in docker
         tails_server_base_url = (
-            "http://" + (os.getenv("DOCKERHOST") or "host.docker.internal") + ":6543"
+                "http://" + (os.getenv("DOCKERHOST") or "host.docker.internal") + ":6543"
         )
 
     if ("revocation" in args and args.revocation) and not tails_server_base_url:
@@ -1395,17 +1410,17 @@ async def create_agent_with_args(args, ident: str = None):
 
 
 async def test_main(
-    start_port: int,
-    no_auto: bool = False,
-    revocation: bool = False,
-    tails_server_base_url: str = None,
-    show_timing: bool = False,
-    multitenant: bool = False,
-    mediation: bool = False,
-    use_did_exchange: bool = False,
-    wallet_type: str = None,
-    cred_type: str = None,
-    aip: str = 20,
+        start_port: int,
+        no_auto: bool = False,
+        revocation: bool = False,
+        tails_server_base_url: str = None,
+        show_timing: bool = False,
+        multitenant: bool = False,
+        mediation: bool = False,
+        use_did_exchange: bool = False,
+        wallet_type: str = None,
+        cred_type: str = None,
+        aip: str = 20,
 ):
     """Test to startup a couple of agents."""
 

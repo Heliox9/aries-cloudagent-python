@@ -29,14 +29,14 @@ LOGGER = logging.getLogger(__name__)
 
 class AliceAgent(AriesAgent):
     def __init__(
-        self,
-        ident: str,
-        http_port: int,
-        admin_port: int,
-        no_auto: bool = False,
-        aip: int = 20,
-        endorser_role: str = None,
-        **kwargs,
+            self,
+            ident: str,
+            http_port: int,
+            admin_port: int,
+            no_auto: bool = False,
+            aip: int = 20,
+            endorser_role: str = None,
+            **kwargs,
     ):
         super().__init__(
             ident,
@@ -137,7 +137,7 @@ async def main(args):
         log_status("#9 Input faber.py invitation details")
         await input_invitation(alice_agent)
 
-        options = "    (3) Send Message\n" "    (4) Input New Invitation\n"
+        options = "    (3) Send Message\n" "    (4) Input New Invitation\n" " (5) show certs\n"
         if alice_agent.endorser_role and alice_agent.endorser_role == "author":
             options += "    (D) Set Endorser's DID\n"
         if alice_agent.multitenant:
@@ -190,6 +190,11 @@ async def main(args):
                 # handle new invitation
                 log_status("Input new invitation details")
                 await input_invitation(alice_agent)
+
+            elif option == "5":
+                log_status("Print all current certs")
+                await alice_agent.show_credentials()
+                # TODO actually implement
 
         if alice_agent.show_timing:
             timing = await alice_agent.agent.fetch_timing()
