@@ -74,6 +74,261 @@ class DiplomaAgent(AriesAgent):
     def connection_ready(self):
         return self._connection_ready.done() and self._connection_ready.result()
 
+    async def check_proof_degree(self):
+        self.log("checking proof for degree vc")
+        if self.aip == 10:
+
+            log_status("AIP 1.0 not maintained. possibly not supported")
+            degree_proof_request = (
+                self.agent.generate_proof_request_degree(
+                    self.aip,
+                    self.cred_type,
+                    self.revocation,
+                    exchange_tracing,
+                )
+            )
+            await self.agent.admin_POST(
+                "/present-proof/send-request", degree_proof_request
+            )
+            pass
+
+        elif self.aip == 20:
+            if self.cred_type == CRED_FORMAT_INDY:
+                degree_proof_request = (
+                    self.agent.generate_proof_request_degree(
+                        self.aip,
+                        self.cred_type,
+                        self.revocation,
+                        exchange_tracing,
+                    )
+                )
+
+            elif self.cred_type == CRED_FORMAT_JSON_LD:
+                degree_proof_request = (
+                    self.agent.generate_proof_request_degree(
+                        self.aip,
+                        self.cred_type,
+                        self.revocation,
+                        exchange_tracing,
+                    )
+                )
+
+            else:
+                raise Exception(
+                    "Error invalid credential type:" + self.cred_type
+                )
+
+            reply = await agent.admin_POST(
+                "/present-proof-2.0/send-request", degree_proof_request
+            )
+
+            self.log(reply)
+
+        #     JH TODO return proof value
+
+        else:
+            raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
+
+    def generate_proof_request_degree(
+            self, aip, cred_type, revocation, exchange_tracing, connectionless=False
+    ):
+        age = 18
+        d = datetime.date.today()
+        birth_date = datetime.date(d.year - age, d.month, d.day)
+        birth_date_format = "%Y%m%d"
+        if aip == 10:
+            req_attrs = [
+                {
+                    "name": "name",
+                    "restrictions": [{"schema_name": "degree schema"}],
+                },
+                {
+                    "name": "date",
+                    "restrictions": [{"schema_name": "degree schema"}],
+                },
+            ]
+            if revocation:
+                req_attrs.append(
+                    {
+                        "name": "degree",
+                        "restrictions": [{"schema_name": "degree schema"}],
+                        "non_revoked": {"to": int(time.time() - 1)},
+                    },
+                )
+            else:
+                req_attrs.append(
+                    {
+                        "name": "degree",
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    }
+                )
+            if SELF_ATTESTED:
+                # test self-attested claims
+                req_attrs.append(
+                    {"name": "self_attested_thing"},
+                )
+            req_preds = [
+                # test zero-knowledge proofs
+                {
+                    "name": "birthdate_dateint",
+                    "p_type": "<=",
+                    "p_value": int(birth_date.strftime(birth_date_format)),
+                    "restrictions": [{"schema_name": "degree schema"}],
+                }
+            ]
+            indy_proof_request = {
+                "name": "Proof of Education",
+                "version": "1.0",
+                "requested_attributes": {
+                    f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
+                },
+                "requested_predicates": {
+                    f"0_{req_pred['name']}_GE_uuid": req_pred for req_pred in req_preds
+                },
+            }
+
+            if revocation:
+                indy_proof_request["non_revoked"] = {"to": int(time.time())}
+
+            proof_request_web_request = {
+                "proof_request": indy_proof_request,
+                "trace": exchange_tracing,
+            }
+            if not connectionless:
+                proof_request_web_request["connection_id"] = self.connection_id
+            return proof_request_web_request
+
+        elif aip == 20:
+            if cred_type == CRED_FORMAT_INDY:
+                req_attrs = [
+                    {
+                        "name": "name",
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    },
+                    {
+                        "name": "date",
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    },
+                ]
+                if revocation:
+                    req_attrs.append(
+                        {
+                            "name": "degree",
+                            "restrictions": [{"schema_name": "degree schema"}],
+                            "non_revoked": {"to": int(time.time() - 1)},
+                        },
+                    )
+                else:
+                    req_attrs.append(
+                        {
+                            "name": "degree",
+                            "restrictions": [{"schema_name": "degree schema"}],
+                        }
+                    )
+                if SELF_ATTESTED:
+                    # test self-attested claims
+                    req_attrs.append(
+                        {"name": "self_attested_thing"},
+                    )
+                req_preds = [
+                    # test zero-knowledge proofs
+                    {
+                        "name": "birthdate_dateint",
+                        "p_type": "<=",
+                        "p_value": int(birth_date.strftime(birth_date_format)),
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    }
+                ]
+                indy_proof_request = {
+                    "name": "Proof of Education",
+                    "version": "1.0",
+                    "requested_attributes": {
+                        f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
+                    },
+                    "requested_predicates": {
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    },
+                }
+
+                if revocation:
+                    indy_proof_request["non_revoked"] = {"to": int(time.time())}
+
+                proof_request_web_request = {
+                    "presentation_request": {"indy": indy_proof_request},
+                    "trace": exchange_tracing,
+                }
+                if not connectionless:
+                    proof_request_web_request["connection_id"] = self.connection_id
+                return proof_request_web_request
+
+            elif cred_type == CRED_FORMAT_JSON_LD:
+                proof_request_web_request = {
+                    "comment": "test proof request for json-ld",
+                    "presentation_request": {
+                        "dif": {
+                            "options": {
+                                "challenge": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+                                "domain": "4jt78h47fh47",
+                            },
+                            "presentation_definition": {
+                                "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
+                                "format": {"ldp_vp": {"proof_type": [SIG_TYPE_BLS]}},
+                                "input_descriptors": [
+                                    {
+                                        "id": "citizenship_input_1",
+                                        "name": "EU Driver's License",
+                                        "schema": [
+                                            {
+                                                "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                                            },
+                                            {
+                                                "uri": "https://w3id.org/citizenship#PermanentResident"
+                                            },
+                                        ],
+                                        "constraints": {
+                                            "limit_disclosure": "required",
+                                            "is_holder": [
+                                                {
+                                                    "directive": "required",
+                                                    "field_id": [
+                                                        "1f44d55f-f161-4938-a659-f8026467f126"
+                                                    ],
+                                                }
+                                            ],
+                                            "fields": [
+                                                {
+                                                    "id": "1f44d55f-f161-4938-a659-f8026467f126",
+                                                    "path": [
+                                                        "$.credentialSubject.familyName"
+                                                    ],
+                                                    "purpose": "The claim must be from one of the specified person",
+                                                    "filter": {"const": "SMITH"},
+                                                },
+                                                {
+                                                    "path": [
+                                                        "$.credentialSubject.givenName"
+                                                    ],
+                                                    "purpose": "The claim must be from one of the specified person",
+                                                },
+                                            ],
+                                        },
+                                    }
+                                ],
+                            },
+                        }
+                    },
+                }
+                if not connectionless:
+                    proof_request_web_request["connection_id"] = self.connection_id
+                return proof_request_web_request
+
+            else:
+                raise Exception(f"Error invalid credential type: {self.cred_type}")
+
+        else:
+            raise Exception(f"Error invalid AIP level: {self.aip}")
+
     def generate_credential_offer(self, aip, cred_type, cred_def_id, exchange_tracing):
 
         if aip == 10:
@@ -277,6 +532,8 @@ class DiplomaAgent(AriesAgent):
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
 
+
+
 async def main(args):
     diploma_agent = await create_agent_with_args(args, ident="diploma")
 
@@ -415,45 +672,63 @@ async def main(args):
                 )
 
             elif option == "1":
-                log_status("#13 Issue credential offer to X")
-
+                # JH TODO check if user has valid login
+                log_status("attempting to proof degree")
+                # await diploma_agent.check_proof_degree()
                 if diploma_agent.aip == 10:
+
                     log_status("AIP 1.0 not maintained. possibly not supported")
-                    offer_request = diploma_agent.agent.generate_credential_offer(
-                        diploma_agent.aip, None, diploma_agent.cred_def_id, exchange_tracing
+                    proof_request_web_request = (
+                        diploma_agent.agent.generate_proof_request_degree(
+                            diploma_agent.aip,
+                            diploma_agent.cred_type,
+                            diploma_agent.revocation,
+                            exchange_tracing,
+                        )
                     )
                     await diploma_agent.agent.admin_POST(
-                        "/issue-credential/send-offer", offer_request
+                        "/present-proof/send-request", proof_request_web_request
                     )
+                    pass
 
                 elif diploma_agent.aip == 20:
                     if diploma_agent.cred_type == CRED_FORMAT_INDY:
-                        offer_request = diploma_agent.agent.generate_credential_offer(
-                            diploma_agent.aip,
-                            diploma_agent.cred_type,
-                            diploma_agent.cred_def_id,
-                            exchange_tracing,
+                        proof_request_web_request = (
+                            diploma_agent.agent.generate_proof_request_degree(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
+                                exchange_tracing,
+                            )
                         )
 
                     elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-                        offer_request = diploma_agent.agent.generate_credential_offer(
-                            diploma_agent.aip,
-                            diploma_agent.cred_type,
-                            None,
-                            exchange_tracing,
+                        proof_request_web_request = (
+                            diploma_agent.agent.generate_proof_request_degree(
+                                diploma_agent.aip,
+                                diploma_agent.cred_type,
+                                diploma_agent.revocation,
+                                exchange_tracing,
+                            )
                         )
 
                     else:
                         raise Exception(
-                            f"Error invalid credential type: {diploma_agent.cred_type}"
+                            "Error invalid credential type:" + diploma_agent.cred_type
                         )
 
-                    await diploma_agent.agent.admin_POST(
-                        "/issue-credential-2.0/send-offer", offer_request
+                    reply = await agent.admin_POST(
+                        "/present-proof-2.0/send-request", proof_request_web_request
                     )
+
+                    log_status(f"request reply: {reply}")
 
                 else:
                     raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
+
+                log_status("proof degree finished")
+
+
 
             elif option == "2":
                 log_status("#20 Request proof of degree from alice")
@@ -703,6 +978,46 @@ async def main(args):
     if not terminated:
         os._exit(1)
 
+
+async def offer_credential(diploma_agent,exchange_tracing):
+    log_status("#13 Issue credential offer to X")
+    if diploma_agent.aip == 10:
+        log_status("AIP 1.0 not maintained. possibly not supported")
+        offer_request = diploma_agent.agent.generate_credential_offer(
+            diploma_agent.aip, None, diploma_agent.cred_def_id, exchange_tracing
+        )
+        await diploma_agent.agent.admin_POST(
+            "/issue-credential/send-offer", offer_request
+        )
+
+    elif diploma_agent.aip == 20:
+        if diploma_agent.cred_type == CRED_FORMAT_INDY:
+            offer_request = diploma_agent.agent.generate_credential_offer(
+                diploma_agent.aip,
+                diploma_agent.cred_type,
+                diploma_agent.cred_def_id,
+                exchange_tracing,
+            )
+
+        elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
+            offer_request = diploma_agent.agent.generate_credential_offer(
+                diploma_agent.aip,
+                diploma_agent.cred_type,
+                None,
+                exchange_tracing,
+            )
+
+        else:
+            raise Exception(
+                f"Error invalid credential type: {diploma_agent.cred_type}"
+            )
+
+        await diploma_agent.agent.admin_POST(
+            "/issue-credential-2.0/send-offer", offer_request
+        )
+
+    else:
+        raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
 
 if __name__ == "__main__":
     parser = arg_parser(ident="diploma", port=8070)
