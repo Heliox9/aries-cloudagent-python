@@ -58,6 +58,7 @@ class AcmeAgent(AriesAgent):
         self._connection_ready = None
         self.cred_state = {}
         self.cred_attrs = {}
+        self.last_proof_ok=False
 
     async def detect_connection(self):
         await self._connection_ready
@@ -108,6 +109,9 @@ class AcmeAgent(AriesAgent):
         pass  # employee id schema does not support revocation
 
     async def handle_present_proof_v2_0(self, message):
+        log_status("invalidating previous proof")
+        self.last_proof_ok=False
+        log_status(f"poofing message: {message}")
         state = message["state"]
         pres_ex_id = message["pres_ex_id"]
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
@@ -145,7 +149,9 @@ class AcmeAgent(AriesAgent):
                     # just print out the schema/cred def id's of presented claims
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
-                # TODO placeholder for the next step
+
+                # JH TODO check if proof is actually valid
+                self.last_proof_ok=True
             else:
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", pres_req["name"])
@@ -154,7 +160,7 @@ class AcmeAgent(AriesAgent):
         self.log("Received message:", message["content"])
 
 
-async def offer_credential(agent,cred_def_id):
+async def offer_credential(agent, cred_def_id):
     log_status("#13 Issue credential offer to X")
     # credential offers
     agent.cred_attrs[cred_def_id] = {
@@ -238,7 +244,7 @@ async def main(args):
             )
 
         # generate an invitation for Alice
-        await acme_agent.generate_invitation(display_invite=True,display_qr=False, wait=True)
+        await acme_agent.generate_invitation(display_invite=True, display_qr=False, wait=True)
 
         options = (
             "    (1) Issue Credential\n"
@@ -255,8 +261,11 @@ async def main(args):
                 break
 
             elif option == "1":
-                log_status("option 1 selected, calling function")
-                await offer_credential(agent, cred_def_id)
+                log_status("1: attempting to offer credential")
+                if agent.last_proof_ok:
+                    await offer_credential(agent, cred_def_id)
+                else:
+                    log_status("1.1: cannot offer credential, no proof received or last proof failed")
 
             elif option == "2":
                 log_status("#20 Request proof of degree from alice")
@@ -292,11 +301,14 @@ async def main(args):
                 }
                 # this sends the request to our agent, which forwards it to Alice
                 # (based on the connection_id)
-                await agent.admin_POST(
+                log_status("20.1 posting present proof 2.0")
+                proof_reply = await agent.admin_POST(
                     "/present-proof-2.0/send-request",
                     proof_request_web_request
                 )
-                await offer_credential(agent, cred_def_id)
+                log_status(f"proof reply: {proof_reply}")
+
+                log_status("credetial offer can be attempted")
 
             elif option == "3":
                 msg = await prompt("Enter message: ")

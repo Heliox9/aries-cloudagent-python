@@ -300,6 +300,7 @@ class AriesAgent(DemoAgent):
         pass
 
     async def handle_present_proof(self, message):
+        log_status("called handle present proof in agent container")
         state = message.get("state")
 
         presentation_exchange_id = message["presentation_exchange_id"]
@@ -393,7 +394,7 @@ class AriesAgent(DemoAgent):
 
         log_status("Agent level: handling proof aip 2.0")
         state = message.get("state")
-        #self.log(f"full message: {message}")
+        # self.log(f"full message: {message}")
         pres_ex_id = message["pres_ex_id"]
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
