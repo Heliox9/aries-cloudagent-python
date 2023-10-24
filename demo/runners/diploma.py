@@ -140,18 +140,18 @@ class DiplomaAgent(AriesAgent):
             req_attrs = [
                 {
                     "name": "name",
-                    "restrictions": [{"schema_name": "degree schema"}],
+                    "restrictions": [{"schema_name": "enrollment schema"}],
                 },
                 {
                     "name": "date",
-                    "restrictions": [{"schema_name": "degree schema"}],
+                    "restrictions": [{"schema_name": "enrollment schema"}],
                 },
             ]
             if revocation:
                 req_attrs.append(
                     {
                         "name": "degree",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "enrollment schema"}],
                         "non_revoked": {"to": int(time.time() - 1)},
                     },
                 )
@@ -159,7 +159,7 @@ class DiplomaAgent(AriesAgent):
                 req_attrs.append(
                     {
                         "name": "degree",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "enrollment schema"}],
                     }
                 )
             if SELF_ATTESTED:
@@ -173,7 +173,7 @@ class DiplomaAgent(AriesAgent):
                     "name": "birthdate_dateint",
                     "p_type": "<=",
                     "p_value": int(birth_date.strftime(birth_date_format)),
-                    "restrictions": [{"schema_name": "degree schema"}],
+                    "restrictions": [{"schema_name": "enrollment schema"}],
                 }
             ]
             indy_proof_request = {
@@ -203,18 +203,18 @@ class DiplomaAgent(AriesAgent):
                 req_attrs = [
                     {
                         "name": "name",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "enrollment schema"}],
                     },
                     {
                         "name": "date",
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "enrollment schema"}],
                     },
                 ]
                 if revocation:
                     req_attrs.append(
                         {
                             "name": "degree",
-                            "restrictions": [{"schema_name": "degree schema"}],
+                            "restrictions": [{"schema_name": "enrollment schema"}],
                             "non_revoked": {"to": int(time.time() - 1)},
                         },
                     )
@@ -222,7 +222,7 @@ class DiplomaAgent(AriesAgent):
                     req_attrs.append(
                         {
                             "name": "degree",
-                            "restrictions": [{"schema_name": "degree schema"}],
+                            "restrictions": [{"schema_name": "enrollment schema"}],
                         }
                     )
                 if SELF_ATTESTED:
@@ -236,7 +236,7 @@ class DiplomaAgent(AriesAgent):
                         "name": "birthdate_dateint",
                         "p_type": "<=",
                         "p_value": int(birth_date.strftime(birth_date_format)),
-                        "restrictions": [{"schema_name": "degree schema"}],
+                        "restrictions": [{"schema_name": "enrollment schema"}],
                     }
                 ]
                 indy_proof_request = {

@@ -5,8 +5,8 @@ from random_word import RandomWords
 
 r = RandomWords()
 
-FABER_ADMIN_URL = "http://localhost:9011"
-ALICE_ADMIN_URL = "http://localhost:9012"
+ENROLLMENT_ADMIN_URL = "http://localhost:9011"
+STUDENT_ADMIN_URL = "http://localhost:9012"
 ACME_ADMIN_URL = "http://localhost:9013"
 MULTI_ADMIN_URL = "http://localhost:9014"
 
@@ -128,25 +128,25 @@ if __name__ == "__main__":
         faber_invitation,
         faber_alice_connection_id,
         faber_recipient_keys,
-    ) = create_invitation("faber", "alice", None, FABER_ADMIN_URL)
+    ) = create_invitation("faber", "alice", None, ENROLLMENT_ADMIN_URL)
     alice_faber_connection_id = receive_invitation(
-        faber_invitation, "faber", None, ALICE_ADMIN_URL
+        faber_invitation, "faber", None, STUDENT_ADMIN_URL
     )
 
     connection_active = False
     attempts = 0
     while not connection_active and attempts < 5:
         wait_a_bit(1)
-        connection_active = fetch_connection(faber_alice_connection_id, FABER_ADMIN_URL)
+        connection_active = fetch_connection(faber_alice_connection_id, ENROLLMENT_ADMIN_URL)
         attempts = attempts + 1
 
     print("\n... connections active, ping each other ...\n")
 
     pings = 0
     while connection_active and pings < 5:
-        ping_connection(faber_alice_connection_id, "faber", FABER_ADMIN_URL)
+        ping_connection(faber_alice_connection_id, "faber", ENROLLMENT_ADMIN_URL)
         wait_a_bit(1)
-        ping_connection(alice_faber_connection_id, "alice", ALICE_ADMIN_URL)
+        ping_connection(alice_faber_connection_id, "alice", STUDENT_ADMIN_URL)
         wait_a_bit(1)
         pings = pings + 1
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     )
 
     alice_multi_one_connection_id = receive_invitation(
-        multi_one_invitation, multi_one_wallet_name, None, ALICE_ADMIN_URL
+        multi_one_invitation, multi_one_wallet_name, None, STUDENT_ADMIN_URL
     )
 
     connection_active = False
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     while not connection_active and attempts < 5:
         wait_a_bit(1)
         connection_active = fetch_connection(
-            alice_multi_one_connection_id, ALICE_ADMIN_URL
+            alice_multi_one_connection_id, STUDENT_ADMIN_URL
         )
         attempts = attempts + 1
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
             multi_one_headers,
         )
         wait_a_bit(1)
-        ping_connection(alice_multi_one_connection_id, "alice", ALICE_ADMIN_URL)
+        ping_connection(alice_multi_one_connection_id, "alice", STUDENT_ADMIN_URL)
         wait_a_bit(1)
         pings = pings + 1
 

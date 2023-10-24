@@ -400,7 +400,7 @@ This works exactly as the *vanilla* multi-tenancy, except that all connections a
 
 These Alice and Faber scripts (in the `demo/runners` folder) implement the controller and run the agent as a sub-process (see the documentation for `aca-py`). The controller publishes a REST service to receive web hook callbacks from their agent. Note that this architecture, running the agent as a sub-process, is a variation on the documented architecture of running the controller and agent as separate processes/containers.
 
-The controllers for this demo can be found in the [alice.py](runners/student.py) and [faber.py](runners/faber.py) files. Alice and Faber are instances of the agent class found in [agent.py](runners/support/agent.py).
+The controllers for this demo can be found in the [alice.py](runners/student.py) and [faber.py](runners/enrollment.py) files. Alice and Faber are instances of the agent class found in [agent.py](runners/support/agent.py).
 
 ## OpenAPI (Swagger) Demo
 

@@ -1173,7 +1173,7 @@ def arg_parser(ident: str = None, port: int = 8020):
     """
     Standard command-line arguments.
 
-    "ident", if specified, refers to one of the standard demo personas - student, faber, acme or performance.
+    "ident", if specified, refers to one of the standard demo personas - student, enrollment, acme or performance.
     """
     parser = argparse.ArgumentParser(
         description="Runs a " + (ident or "aries") + " demo agent."
@@ -1282,7 +1282,7 @@ def arg_parser(ident: str = None, port: int = 8020):
             "--reuse-connections",
             action="store_true",
             help=(
-                "Reuse connections by using Faber public key in the invite. "
+                "Reuse connections by using enrollment public key in the invite. "
                 "Only applicable for AIP 2.0 (OOB) connections."
             ),
         )
@@ -1425,13 +1425,13 @@ async def test_main(
 ):
     """Test to startup a couple of agents."""
 
-    faber_container = None
+    enrollment_container = None
     student_container = None
     try:
         # initialize the containers
-        faber_container = AgentContainer(
+        enrollment_container = AgentContainer(
             genesis_txns=genesis,
-            ident="Faber.agent",
+            ident="enrollment.agent",
             start_port=start_port,
             no_auto=no_auto,
             revocation=revocation,
@@ -1462,9 +1462,9 @@ async def test_main(
             aip=aip,
         )
 
-        # start the agents - faber gets a public DID and schema/cred def
-        await faber_container.initialize(
-            schema_name="degree schema",
+        # start the agents - enrollment gets a public DID and schema/cred def
+        await enrollment_container.initialize(
+            schema_name="enrollment schema",
             schema_attrs=[
                 "name",
                 "date",
@@ -1474,18 +1474,18 @@ async def test_main(
         )
         await student_container.initialize()
 
-        # faber create invitation
-        invite = await faber_container.generate_invitation()
+        # enrollment create invitation
+        invite = await enrollment_container.generate_invitation()
 
         # student accept invitation
         invite_details = invite["invitation"]
         connection = await student_container.input_invitation(invite_details)
 
-        # wait for faber connection to activate
-        await faber_container.detect_connection()
+        # wait for enrollment connection to activate
+        await enrollment_container.detect_connection()
         await student_container.detect_connection()
 
-        # TODO faber issue credential to alice
+        # TODO enrollment issue credential to alice
         # TODO alice check for received credential
 
         log_msg("Sleeping ...")
@@ -1502,9 +1502,9 @@ async def test_main(
             if student_container:
                 log_msg("Shutting down student agent ...")
                 await student_container.terminate()
-            if faber_container:
-                log_msg("Shutting down faber agent ...")
-                await faber_container.terminate()
+            if enrollment_container:
+                log_msg("Shutting down enrollment agent ...")
+                await enrollment_container.terminate()
         except Exception as e:
             LOGGER.exception("Error terminating agent:", e)
             terminated = False

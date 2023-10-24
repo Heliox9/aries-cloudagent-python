@@ -123,7 +123,7 @@ class AcmeAgent(AriesAgent):
             )
             self.log("Proof = ", proof["verified"])
 
-            # if presentation is a degree schema (proof of education),
+            # if presentation is a enrollment schema (proof of education),
             # check values received
             pres_req = message["by_format"]["pres_request"]["indy"]
             pres = message["by_format"]["pres"]["indy"]
@@ -280,15 +280,15 @@ async def main(args):
                 req_attrs = [
                     {
                         "name": "name",
-                        "restrictions": [{"schema_name": "degree schema"}]
+                        "restrictions": [{"schema_name": "enrollment schema"}]
                     },
                     {
                         "name": "date",
-                        "restrictions": [{"schema_name": "degree schema"}]
+                        "restrictions": [{"schema_name": "enrollment schema"}]
                     },
                     {
                         "name": "degree",
-                        "restrictions": [{"schema_name": "degree schema"}]
+                        "restrictions": [{"schema_name": "enrollment schema"}]
                     }
                 ]
                 req_preds = []

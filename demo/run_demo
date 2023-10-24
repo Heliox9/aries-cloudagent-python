@@ -89,7 +89,7 @@ do
     continue
   ;;
   --bg)
-    if [ "${AGENT}" = "student" ] || [ "${AGENT}" = "faber" ] || [ "${AGENT}" = "acme" ]; then
+    if [ "${AGENT}" = "student" ] || [ "${AGENT}" = "enrollment" ] || [ "${AGENT}" = "acme" ]; then
       DOCKER_OPTS="-d"
       echo -e "\nRunning in ${AGENT} in the background. Note that you cannot use the command line console in this mode."
       echo To see the logs use: \"docker logs ${AGENT}\".
@@ -97,7 +97,7 @@ do
       echo To stop the agent, use: \"docker stop ${AGENT}\". The docker environment will
       echo -e "be removed on stop.\n\n"
     else
-      echo The "bg" option \(for running docker in detached mode\) is only for agents Alice, Faber and Acme.
+      echo The "bg" option \(for running docker in detached mode\) is only for agents Student, Enrollment and Acme.
       echo Ignoring...
     fi
     continue
@@ -108,7 +108,7 @@ do
 Usage:
    ./demo_run <agent> [OPTIONS]
 
-   - <agent> is one of student, faber, acme, performance, diploma.
+   - <agent> is one of student, enrollment, acme, performance, diploma.
    - Options:
       --events - display on the terminal the webhook events from the ACA-Py agent.
       --timing - at the end of the run, display timing; relevant to the "performance" agent.
@@ -127,8 +127,8 @@ EOF
   ARGS="${ARGS:+$ARGS }$i"
 done
 
-if [ "$AGENT" = "faber" ]; then
-  AGENT_MODULE="faber"
+if [ "$AGENT" = "enrollment" ]; then
+  AGENT_MODULE="enrollment"
   AGENT_PORT=8020
   AGENT_PORT_RANGE=8020-8029
 elif [ "$AGENT" = "student" ]; then
@@ -148,13 +148,13 @@ elif [ "$AGENT" = "diploma" ]; then
   AGENT_PORT=8070
   AGENT_PORT_RANGE=8070-8079
 else
-  echo "Please specify which agent you want to run. Choose from 'faber', 'student', 'acme', or 'performance', 'diploma'."
+  echo "Please specify which agent you want to run. Choose from 'enrollment', 'student', 'acme', or 'performance', 'diploma'."
   exit 1
 fi
 
 echo "Preparing agent image..."
 docker build -q -t acapy-base -f ../docker/Dockerfile .. || exit 1
-docker build -q -t faber-student-demo -f ../docker/Dockerfile.demo --build-arg from_image=acapy-base .. || exit 1
+docker build -q -t enrollment-student-demo -f ../docker/Dockerfile.demo --build-arg from_image=acapy-base .. || exit 1
 #TODO check what happens here
 
 if [ ! -z "$DOCKERHOST" ]; then
@@ -262,4 +262,4 @@ $DOCKER run --name $AGENT --rm -it ${DOCKER_OPTS} \
   -p 0.0.0.0:$AGENT_PORT_RANGE:$AGENT_PORT_RANGE \
   ${DOCKER_VOL} \
   $DOCKER_ENV \
-  faber-student-demo $AGENT_MODULE --port $AGENT_PORT $ARGS
+  enrollment-student-demo $AGENT_MODULE --port $AGENT_PORT $ARGS
