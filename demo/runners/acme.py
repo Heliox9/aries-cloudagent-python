@@ -109,9 +109,7 @@ class AcmeAgent(AriesAgent):
         pass  # employee id schema does not support revocation
 
     async def handle_present_proof_v2_0(self, message):
-        log_status("invalidating previous proof")
-        self.last_proof_ok=False
-        log_status(f"poofing message: {message}")
+        # log_status(f"poofing message: {message}")
         state = message["state"]
         pres_ex_id = message["pres_ex_id"]
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
@@ -132,7 +130,10 @@ class AcmeAgent(AriesAgent):
             is_proof_of_education = (
                     pres_req["name"] == "Proof of Education"
             )
-            if is_proof_of_education:
+            self.log(f"= {proof['verified']}")
+            self.log(f"='true' {proof['verified'].lower()=='true'}")
+            if is_proof_of_education and proof["verified"]:
+                self.log("Proof = ", proof["verified"])
                 log_status("#28.1 Received proof of education, check claims")
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
                     if referent in pres['requested_proof']['revealed_attrs']:
@@ -150,9 +151,11 @@ class AcmeAgent(AriesAgent):
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
-                # JH TODO check if proof is actually valid
+                # JH TODO change to validate immatriculation date in order to hand out membership for students
+                log_status("setting proof value True")
                 self.last_proof_ok=True
             else:
+                log_status("not validating proof values because it is not educational or not verified")
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", pres_req["name"])
 
@@ -270,6 +273,8 @@ async def main(args):
             elif option == "2":
                 log_status("#20 Request proof of degree from alice")
                 #  presentation requests
+                log_status("invalidating previous proof")
+                agent.last_proof_ok = False
                 req_attrs = [
                     {
                         "name": "name",
