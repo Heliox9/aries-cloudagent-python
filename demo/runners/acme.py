@@ -153,7 +153,7 @@ class AcmeAgent(AriesAgent):
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
-                # JH TODO change to validate immatriculation date in order to hand out membership for students
+                # JH TODO change to validate matriculation date in order to hand out membership for students
                 log_status("setting proof value True")
                 self.last_proof_ok=True
             else:
@@ -315,7 +315,7 @@ async def main(args):
                 )
                 log_status(f"proof reply: {proof_reply}")
 
-                log_status("credetial offer can be attempted")
+                log_status("credential offer can be attempted")
 
             elif option == "3":
                 msg = await prompt("Enter message: ")

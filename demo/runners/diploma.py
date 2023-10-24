@@ -9,6 +9,11 @@ import datetime
 from aiohttp import ClientError
 from qrcode import QRCode
 
+import random
+
+from datetime import date
+from uuid import uuid4
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from runners.agent_container import (  # noqa:E402
@@ -65,6 +70,7 @@ class DiplomaAgent(AriesAgent):
         # TODO define a dict to hold credential attributes
         # based on cred_def_id
         self.cred_attrs = {}
+        self.last_proof_ok = False
 
     async def detect_connection(self):
         await self._connection_ready
@@ -124,7 +130,8 @@ class DiplomaAgent(AriesAgent):
 
             self.log(reply)
 
-        #     JH TODO return proof value
+            #     JH TODO actual proofing
+            self.last_proof_ok = True
 
         else:
             raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
@@ -329,7 +336,7 @@ class DiplomaAgent(AriesAgent):
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
-    def generate_credential_offer(self, aip, cred_type, cred_def_id, exchange_tracing):
+    def generate_credential_offer(self, aip, cred_def_id, exchange_tracing):
 
         if aip == 10:
             # JH: Notes: everything here has to be a valid string
@@ -359,7 +366,6 @@ class DiplomaAgent(AriesAgent):
             return offer_request
 
         elif aip == 20:
-            if cred_type == CRED_FORMAT_INDY:
                 self.cred_attrs[cred_def_id] = {
                     "name": "Alice Smith",
                     "date": "2018-05-28",
@@ -384,8 +390,7 @@ class DiplomaAgent(AriesAgent):
                 }
                 return offer_request
 
-            else:
-                raise Exception(f"Error invalid credential type: {self.cred_type}")
+
 
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
@@ -531,7 +536,58 @@ class DiplomaAgent(AriesAgent):
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
+    async def handle_present_proof_v2_0(self, message):
+        # log_status(f"poofing message: {message}")
+        state = message["state"]
+        pres_ex_id = message["pres_ex_id"]
+        self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
+        if state == "presentation-received":
+            #  handle received presentations
+            log_status("#27 Process the proof provided by X")
+            log_status("#28 Check if proof is valid")
+            proof = await self.admin_POST(
+                f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
+            )
+            self.log("Proof = ", proof["verified"])
+
+            # if presentation is a enrollment schema (proof of education),
+            # check values received
+            pres_req = message["by_format"]["pres_request"]["indy"]
+            pres = message["by_format"]["pres"]["indy"]
+            is_proof_of_education = (
+                    pres_req["name"] == "Proof of Education"
+            )
+            self.log(f"= {proof['verified']}")
+            self.log(f"='true' {proof['verified'].lower() == 'true'}")
+            if is_proof_of_education and proof["verified"]:
+                self.log("Proof = ", proof["verified"])
+                log_status("#28.1 Received proof of education, check claims")
+
+                # JH TODO check claims in actual logic
+                for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                    if referent in pres['requested_proof']['revealed_attrs']:
+                        self.log(
+                            f"{attr_spec['name']}: "
+                            f"{pres['requested_proof']['revealed_attrs'][referent]['raw']}"
+                        )
+                    else:
+                        self.log(
+                            f"{attr_spec['name']}: "
+                            "(attribute not revealed)"
+                        )
+                for id_spec in pres["identifiers"]:
+                    # just print out the schema/cred def id's of presented claims
+                    self.log(f"schema_id: {id_spec['schema_id']}")
+                    self.log(f"cred_def_id {id_spec['cred_def_id']}")
+
+                # JH TODO change to validate immatriculation date in order to hand out membership for students
+                log_status("setting proof value True")
+                self.last_proof_ok = True
+            else:
+                log_status("not validating proof values because it is not educational or not verified")
+                # in case there are any other kinds of proofs received
+                self.log("#28.1 Received ", pres_req["name"])
 
 
 async def main(args):
@@ -672,114 +728,57 @@ async def main(args):
                 )
 
             elif option == "1":
-                # JH TODO check if user has valid login
-                log_status("attempting to proof degree")
-                # await diploma_agent.check_proof_degree()
-                if diploma_agent.aip == 10:
-
-                    log_status("AIP 1.0 not maintained. possibly not supported")
-                    proof_request_web_request = (
-                        diploma_agent.agent.generate_proof_request_degree(
-                            diploma_agent.aip,
-                            diploma_agent.cred_type,
-                            diploma_agent.revocation,
-                            exchange_tracing,
-                        )
-                    )
-                    await diploma_agent.agent.admin_POST(
-                        "/present-proof/send-request", proof_request_web_request
-                    )
-                    pass
-
-                elif diploma_agent.aip == 20:
-                    if diploma_agent.cred_type == CRED_FORMAT_INDY:
-                        proof_request_web_request = (
-                            diploma_agent.agent.generate_proof_request_degree(
-                                diploma_agent.aip,
-                                diploma_agent.cred_type,
-                                diploma_agent.revocation,
-                                exchange_tracing,
-                            )
-                        )
-
-                    elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-                        proof_request_web_request = (
-                            diploma_agent.agent.generate_proof_request_degree(
-                                diploma_agent.aip,
-                                diploma_agent.cred_type,
-                                diploma_agent.revocation,
-                                exchange_tracing,
-                            )
-                        )
-
-                    else:
-                        raise Exception(
-                            "Error invalid credential type:" + diploma_agent.cred_type
-                        )
-
-                    reply = await agent.admin_POST(
-                        "/present-proof-2.0/send-request", proof_request_web_request
-                    )
-
-                    log_status(f"request reply: {reply}")
-
+                log_status("1: attempting to offer credential")
+                if diploma_agent.agent.last_proof_ok:
+                    await offer_credential(diploma_agent, exchange_tracing)
                 else:
-                    raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
-
-                log_status("proof degree finished")
-
-
+                    log_status("1.1: cannot offer credential, no proof received or last proof failed")
 
             elif option == "2":
-                log_status("#20 Request proof of degree from alice")
-                if diploma_agent.aip == 10:
+                log_status("#20 Request proof of enrollment from student")
+                #  presentation requests
+                log_status("invalidating previous proof")
+                agent.last_proof_ok = False
+                req_attrs = [
+                    {
+                        "name": "name",
+                        "restrictions": [{"schema_name": "enrollment schema"}]
+                    },
+                    {
+                        "name": "date",
+                        "restrictions": [{"schema_name": "enrollment schema"}]
+                    },
+                    {
+                        "name": "degree",
+                        "restrictions": [{"schema_name": "enrollment schema"}]
+                    }
+                ]
+                req_preds = []
+                indy_proof_request = {
+                    "name": "Proof of Education",
+                    "version": "1.0",
+                    "nonce": str(uuid4().int),
+                    "requested_attributes": {
+                        f"0_{req_attr['name']}_uuid": req_attr
+                        for req_attr in req_attrs
+                    },
+                    "requested_predicates": {}
+                }
+                proof_request_web_request = {
+                    "connection_id": agent.connection_id,
+                    "presentation_request": {"indy": indy_proof_request},
+                }
+                # this sends the request to our agent, which forwards it to Alice
+                # (based on the connection_id)
+                log_status("20.1 posting present proof 2.0")
+                proof_reply = await agent.admin_POST(
+                    "/present-proof-2.0/send-request",
+                    proof_request_web_request
+                )
+                log_status(f"proof reply: {proof_reply}")
 
-                    log_status("AIP 1.0 not maintained. possibly not supported")
-                    proof_request_web_request = (
-                        diploma_agent.agent.generate_proof_request_web_request(
-                            diploma_agent.aip,
-                            diploma_agent.cred_type,
-                            diploma_agent.revocation,
-                            exchange_tracing,
-                        )
-                    )
-                    await diploma_agent.agent.admin_POST(
-                        "/present-proof/send-request", proof_request_web_request
-                    )
-                    pass
-
-                elif diploma_agent.aip == 20:
-                    if diploma_agent.cred_type == CRED_FORMAT_INDY:
-                        proof_request_web_request = (
-                            diploma_agent.agent.generate_proof_request_web_request(
-                                diploma_agent.aip,
-                                diploma_agent.cred_type,
-                                diploma_agent.revocation,
-                                exchange_tracing,
-                            )
-                        )
-
-                    elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-                        proof_request_web_request = (
-                            diploma_agent.agent.generate_proof_request_web_request(
-                                diploma_agent.aip,
-                                diploma_agent.cred_type,
-                                diploma_agent.revocation,
-                                exchange_tracing,
-                            )
-                        )
-
-                    else:
-                        raise Exception(
-                            "Error invalid credential type:" + diploma_agent.cred_type
-                        )
-
-                    await agent.admin_POST(
-                        "/present-proof-2.0/send-request", proof_request_web_request
-                    )
-
-                else:
-                    raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
+                log_status("credential offer can be attempted")
+            #     JH TODO change in order to fit different requirements from acme
 
             elif option == "2a":
                 log_status("#20 Request * Connectionless * proof of degree from alice")
@@ -979,45 +978,16 @@ async def main(args):
         os._exit(1)
 
 
-async def offer_credential(diploma_agent,exchange_tracing):
+async def offer_credential(diploma_agent, exchange_tracing):
     log_status("#13 Issue credential offer to X")
-    if diploma_agent.aip == 10:
-        log_status("AIP 1.0 not maintained. possibly not supported")
-        offer_request = diploma_agent.agent.generate_credential_offer(
-            diploma_agent.aip, None, diploma_agent.cred_def_id, exchange_tracing
-        )
-        await diploma_agent.agent.admin_POST(
-            "/issue-credential/send-offer", offer_request
-        )
 
-    elif diploma_agent.aip == 20:
-        if diploma_agent.cred_type == CRED_FORMAT_INDY:
-            offer_request = diploma_agent.agent.generate_credential_offer(
-                diploma_agent.aip,
-                diploma_agent.cred_type,
-                diploma_agent.cred_def_id,
-                exchange_tracing,
-            )
+    offer_request = diploma_agent.agent.generate_credential_offer(
+        diploma_agent.aip, diploma_agent.cred_def_id, exchange_tracing
+    )
+    await diploma_agent.agent.admin_POST(
+        "/issue-credential-2.0/send-offer", offer_request
+    )
 
-        elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-            offer_request = diploma_agent.agent.generate_credential_offer(
-                diploma_agent.aip,
-                diploma_agent.cred_type,
-                None,
-                exchange_tracing,
-            )
-
-        else:
-            raise Exception(
-                f"Error invalid credential type: {diploma_agent.cred_type}"
-            )
-
-        await diploma_agent.agent.admin_POST(
-            "/issue-credential-2.0/send-offer", offer_request
-        )
-
-    else:
-        raise Exception(f"Error invalid AIP level: {diploma_agent.aip}")
 
 if __name__ == "__main__":
     parser = arg_parser(ident="diploma", port=8070)
