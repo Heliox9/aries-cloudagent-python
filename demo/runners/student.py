@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 
-class AliceAgent(AriesAgent):
+class StudentAgent(AriesAgent):
     def __init__(
             self,
             ident: str,
@@ -42,7 +42,7 @@ class AliceAgent(AriesAgent):
             ident,
             http_port,
             admin_port,
-            prefix="Alice",
+            prefix="Student",
             no_auto=no_auto,
             seed=None,
             aip=aip,
@@ -104,46 +104,46 @@ async def input_invitation(agent_container):
 
 
 async def main(args):
-    alice_agent = await create_agent_with_args(args, ident="alice")
+    student_agent = await create_agent_with_args(args, ident="student")
 
     try:
         log_status(
             "#7 Provision an agent and wallet, get back configuration details"
             + (
-                f" (Wallet type: {alice_agent.wallet_type})"
-                if alice_agent.wallet_type
+                f" (Wallet type: {student_agent.wallet_type})"
+                if student_agent.wallet_type
                 else ""
             )
         )
-        agent = AliceAgent(
-            "alice.agent",
-            alice_agent.start_port,
-            alice_agent.start_port + 1,
-            genesis_data=alice_agent.genesis_txns,
-            genesis_txn_list=alice_agent.genesis_txn_list,
-            no_auto=alice_agent.no_auto,
-            tails_server_base_url=alice_agent.tails_server_base_url,
-            revocation=alice_agent.revocation,
-            timing=alice_agent.show_timing,
-            multitenant=alice_agent.multitenant,
-            mediation=alice_agent.mediation,
-            wallet_type=alice_agent.wallet_type,
-            aip=alice_agent.aip,
-            endorser_role=alice_agent.endorser_role,
+        agent = StudentAgent(
+            "student.agent",
+            student_agent.start_port,
+            student_agent.start_port + 1,
+            genesis_data=student_agent.genesis_txns,
+            genesis_txn_list=student_agent.genesis_txn_list,
+            no_auto=student_agent.no_auto,
+            tails_server_base_url=student_agent.tails_server_base_url,
+            revocation=student_agent.revocation,
+            timing=student_agent.show_timing,
+            multitenant=student_agent.multitenant,
+            mediation=student_agent.mediation,
+            wallet_type=student_agent.wallet_type,
+            aip=student_agent.aip,
+            endorser_role=student_agent.endorser_role,
         )
 
-        await alice_agent.initialize(the_agent=agent)
+        await student_agent.initialize(the_agent=agent)
 
         log_status("#9 Input faber.py invitation details")
-        await input_invitation(alice_agent)
+        await input_invitation(student_agent)
 
         options = "    (3) Send Message\n" "    (4) Input New Invitation\n" " (5) show certs\n"
-        if alice_agent.endorser_role and alice_agent.endorser_role == "author":
+        if student_agent.endorser_role and student_agent.endorser_role == "author":
             options += "    (D) Set Endorser's DID\n"
-        if alice_agent.multitenant:
+        if student_agent.multitenant:
             options += "    (W) Create and/or Enable Wallet\n"
         options += "    (X) Exit?\n[3/4/{}X] ".format(
-            "W/" if alice_agent.multitenant else "",
+            "W/" if student_agent.multitenant else "",
         )
         async for option in prompt_loop(options):
             if option is not None:
@@ -152,58 +152,58 @@ async def main(args):
             if option is None or option in "xX":
                 break
 
-            elif option in "dD" and alice_agent.endorser_role:
+            elif option in "dD" and student_agent.endorser_role:
                 endorser_did = await prompt("Enter Endorser's DID: ")
-                await alice_agent.agent.admin_POST(
-                    f"/transactions/{alice_agent.agent.connection_id}/set-endorser-info",
+                await student_agent.agent.admin_POST(
+                    f"/transactions/{student_agent.agent.connection_id}/set-endorser-info",
                     params={"endorser_did": endorser_did, "endorser_name": "endorser"},
                 )
 
-            elif option in "wW" and alice_agent.multitenant:
+            elif option in "wW" and student_agent.multitenant:
                 target_wallet_name = await prompt("Enter wallet name: ")
                 include_subwallet_webhook = await prompt(
                     "(Y/N) Create sub-wallet webhook target: "
                 )
                 if include_subwallet_webhook.lower() == "y":
-                    await alice_agent.agent.register_or_switch_wallet(
+                    await student_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
-                        webhook_port=alice_agent.agent.get_new_webhook_port(),
-                        mediator_agent=alice_agent.mediator_agent,
-                        taa_accept=alice_agent.taa_accept,
+                        webhook_port=student_agent.agent.get_new_webhook_port(),
+                        mediator_agent=student_agent.mediator_agent,
+                        taa_accept=student_agent.taa_accept,
                     )
                 else:
-                    await alice_agent.agent.register_or_switch_wallet(
+                    await student_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
-                        mediator_agent=alice_agent.mediator_agent,
-                        taa_accept=alice_agent.taa_accept,
+                        mediator_agent=student_agent.mediator_agent,
+                        taa_accept=student_agent.taa_accept,
                     )
 
             elif option == "3":
                 msg = await prompt("Enter message: ")
                 if msg:
-                    await alice_agent.agent.admin_POST(
-                        f"/connections/{alice_agent.agent.connection_id}/send-message",
+                    await student_agent.agent.admin_POST(
+                        f"/connections/{student_agent.agent.connection_id}/send-message",
                         {"content": msg},
                     )
 
             elif option == "4":
                 # handle new invitation
                 log_status("Input new invitation details")
-                await input_invitation(alice_agent)
+                await input_invitation(student_agent)
 
             elif option == "5":
                 log_status("Print all current certs")
-                await alice_agent.show_credentials()
+                await student_agent.show_credentials()
                 # TODO actually implement
 
-        if alice_agent.show_timing:
-            timing = await alice_agent.agent.fetch_timing()
+        if student_agent.show_timing:
+            timing = await student_agent.agent.fetch_timing()
             if timing:
-                for line in alice_agent.agent.format_timing(timing):
+                for line in student_agent.agent.format_timing(timing):
                     log_msg(line)
 
     finally:
-        terminated = await alice_agent.terminate()
+        terminated = await student_agent.terminate()
 
     await asyncio.sleep(0.1)
 
@@ -212,7 +212,7 @@ async def main(args):
 
 
 if __name__ == "__main__":
-    parser = arg_parser(ident="alice", port=8030)
+    parser = arg_parser(ident="student", port=8030)
     args = parser.parse_args()
 
     ENABLE_PYDEVD_PYCHARM = os.getenv("ENABLE_PYDEVD_PYCHARM", "").lower()
@@ -230,7 +230,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Alice remote debugging to "
+                "Student remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(
