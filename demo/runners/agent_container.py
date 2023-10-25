@@ -1308,6 +1308,7 @@ async def create_agent_with_args_list(in_args: list):
 
 
 async def create_agent_with_args(args, ident: str = None):
+    # JH TODO read and understand which args can be set and how they effect the weird code in the different agent implementations
     if ("did_exchange" in args and args.did_exchange) and args.mediation:
         raise Exception(
             "DID-Exchange connection protocol is not (yet) compatible with mediation"
