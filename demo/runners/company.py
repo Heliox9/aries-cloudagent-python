@@ -41,7 +41,7 @@ logging.basicConfig(level=logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 
-class DiplomaAgent(AriesAgent):
+class CompanyAgent(AriesAgent):
     def __init__(
             self,
             ident: str,
@@ -57,7 +57,7 @@ class DiplomaAgent(AriesAgent):
             ident,
             http_port,
             admin_port,
-            prefix="Diploma",
+            prefix="Company",
             no_auto=no_auto,
             endorser_role=endorser_role,
             revocation=revocation,
@@ -81,27 +81,26 @@ class DiplomaAgent(AriesAgent):
         return self._connection_ready.done() and self._connection_ready.result()
 
     def generate_credential_offer(self, aip, cred_def_id, exchange_tracing):
-
-        # JH TODO simplify to only use 2.0 and cleanup
         d = datetime.date.today()
         date_format = "%Y%m%d"
-        if aip == 10:
-            # JH: Notes: everything here has to be a valid string
-            # define attributes to send for credential
-            self.cred_attrs[cred_def_id] = {
-                "name": "Alice Smith",
-                "date": d.strftime(date_format),
-                "degree": "CS",
-                "grade": str(1),
-            }
 
-            cred_preview = {
-                "@type": CRED_PREVIEW_TYPE,
-                "attributes": [
-                    {"name": n, "value": v}
-                    for (n, v) in self.cred_attrs[cred_def_id].items()
-                ],
-            }
+        # define attributes to send for credential
+        self.cred_attrs[cred_def_id] = {
+            "name": "Alice Smith",
+            "start_date": d.strftime(date_format),
+            "position": "Developer",
+        }
+
+        cred_preview = {
+            "@type": CRED_PREVIEW_TYPE,
+            "attributes": [
+                {"name": n, "value": v}
+                for (n, v) in self.cred_attrs[cred_def_id].items()
+            ],
+        }
+
+        if aip == 10:
+
             offer_request = {
                 "connection_id": self.connection_id,
                 "cred_def_id": cred_def_id,
@@ -113,20 +112,6 @@ class DiplomaAgent(AriesAgent):
             return offer_request
 
         elif aip == 20:
-            self.cred_attrs[cred_def_id] = {
-                "name": "Alice Smith",
-                "date": d.strftime(date_format),
-                "degree": "CS",
-                "grade": str(2),
-            }
-
-            cred_preview = {
-                "@type": CRED_PREVIEW_TYPE,
-                "attributes": [
-                    {"name": n, "value": v}
-                    for (n, v) in self.cred_attrs[cred_def_id].items()
-                ],
-            }
             offer_request = {
                 "connection_id": self.connection_id,
                 "comment": f"Offer on cred def id {cred_def_id}",
@@ -136,7 +121,6 @@ class DiplomaAgent(AriesAgent):
                 "trace": exchange_tracing,
             }
             return offer_request
-
 
 
         else:
@@ -149,7 +133,7 @@ class DiplomaAgent(AriesAgent):
 
         if state == "presentation-received":
             #  handle received presentations
-            self.log("#27 Process the proof provided by X")
+            self.log("#27 Process the proof provided by Student")
             self.log("#28 Check if proof is valid")
             proof = await self.admin_POST(
                 f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
@@ -165,6 +149,7 @@ class DiplomaAgent(AriesAgent):
             is_proof_of_education = (
                     pres_req["name"] == "Proof of Education"
             )
+            self.log("Education = ", is_proof_of_education)
             if is_proof_of_education and verified_value:
                 self.log("#28.1 Received proof of education, check claims")
 
@@ -233,62 +218,61 @@ def check_attr_value(pres, referent, expected_value):
 
 
 async def main(args):
-    diploma_agent = await create_agent_with_args(args, ident="diploma")
+    company_agent = await create_agent_with_args(args, ident="company")
 
     try:
         log_status(
             "#1 Provision an agent and wallet, get back configuration details"
             + (
-                f" (Wallet type: {diploma_agent.wallet_type})"
-                if diploma_agent.wallet_type
+                f" (Wallet type: {company_agent.wallet_type})"
+                if company_agent.wallet_type
                 else ""
             )
         )
-        agent = DiplomaAgent(
-            "diploma.agent",
-            diploma_agent.start_port,
-            diploma_agent.start_port + 1,
-            genesis_data=diploma_agent.genesis_txns,
-            genesis_txn_list=diploma_agent.genesis_txn_list,
-            no_auto=diploma_agent.no_auto,
-            tails_server_base_url=diploma_agent.tails_server_base_url,
-            revocation=diploma_agent.revocation,
-            timing=diploma_agent.show_timing,
-            multitenant=diploma_agent.multitenant,
-            mediation=diploma_agent.mediation,
-            wallet_type=diploma_agent.wallet_type,
-            seed=diploma_agent.seed,
-            aip=diploma_agent.aip,
-            endorser_role=diploma_agent.endorser_role,
-            anoncreds_legacy_revocation=diploma_agent.anoncreds_legacy_revocation,
+        agent = CompanyAgent(
+            "company.agent",
+            company_agent.start_port,
+            company_agent.start_port + 1,
+            genesis_data=company_agent.genesis_txns,
+            genesis_txn_list=company_agent.genesis_txn_list,
+            no_auto=company_agent.no_auto,
+            tails_server_base_url=company_agent.tails_server_base_url,
+            revocation=company_agent.revocation,
+            timing=company_agent.show_timing,
+            multitenant=company_agent.multitenant,
+            mediation=company_agent.mediation,
+            wallet_type=company_agent.wallet_type,
+            seed=company_agent.seed,
+            aip=company_agent.aip,
+            endorser_role=company_agent.endorser_role,
+            anoncreds_legacy_revocation=company_agent.anoncreds_legacy_revocation,
         )
 
-        diploma_schema_name = "diploma schema"
-        diploma_schema_attrs = [
+        job_schema_name = "job schema"
+        job_schema_attrs = [
             "name",
-            "date",
-            "degree",
-            "grade",
+            "start_date",
+            "position",
         ]
-        if diploma_agent.cred_type == CRED_FORMAT_INDY:
-            diploma_agent.public_did = True
-            await diploma_agent.initialize(
+        if company_agent.cred_type == CRED_FORMAT_INDY:
+            company_agent.public_did = True
+            await company_agent.initialize(
                 the_agent=agent,
-                schema_name=diploma_schema_name,
-                schema_attrs=diploma_schema_attrs,
-                create_endorser_agent=(diploma_agent.endorser_role == "author")
-                if diploma_agent.endorser_role
+                schema_name=job_schema_name,
+                schema_attrs=job_schema_attrs,
+                create_endorser_agent=(company_agent.endorser_role == "author")
+                if company_agent.endorser_role
                 else False,
             )
-        elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-            diploma_agent.public_did = True
-            await diploma_agent.initialize(the_agent=agent)
+        elif company_agent.cred_type == CRED_FORMAT_JSON_LD:
+            company_agent.public_did = True
+            await company_agent.initialize(the_agent=agent)
         else:
-            raise Exception("Invalid credential type:" + diploma_agent.cred_type)
+            raise Exception("Invalid credential type:" + company_agent.cred_type)
 
-        # generate an invitation for Alice
-        await diploma_agent.generate_invitation(
-            display_qr=False, display_invite=True, reuse_connections=diploma_agent.reuse_connections, wait=True
+        # generate an invitation for Student
+        await company_agent.generate_invitation(
+            display_qr=False, display_invite=True, reuse_connections=company_agent.reuse_connections, wait=True
         )
 
         exchange_tracing = False
@@ -298,23 +282,23 @@ async def main(args):
             "    (3) Send Message\n"
             "    (4) Create New Invitation\n"
         )
-        if diploma_agent.revocation:
+        if company_agent.revocation:
             options += (
                 "    (5) Revoke Credential\n"
                 "    (6) Publish Revocations\n"
                 "    (7) Rotate Revocation Registry\n"
                 "    (8) List Revocation Registries\n"
             )
-        if diploma_agent.endorser_role and diploma_agent.endorser_role == "author":
+        if company_agent.endorser_role and company_agent.endorser_role == "author":
             log_status("WARNING Untested feature")
             options += "    (D) Set Endorser's DID\n"
-        if diploma_agent.multitenant:
+        if company_agent.multitenant:
             log_status("WARNING Untested feature")
             options += "    (W) Create and/or Enable Wallet\n"
         options += "    (T) Toggle tracing on credential/proof exchange\n"
         options += "    (X) Exit?\n[1/2/3/4/{}{}T/X] ".format(
-            "5/6/7/8/" if diploma_agent.revocation else "",
-            "W/" if diploma_agent.multitenant else "",
+            "5/6/7/8/" if company_agent.revocation else "",
+            "W/" if company_agent.multitenant else "",
         )
         async for option in prompt_loop(options):
             if option is not None:
@@ -325,45 +309,47 @@ async def main(args):
                 # stops execution loop
                 break
 
-            elif option in "dD" and diploma_agent.endorser_role:
+            elif option in "dD" and company_agent.endorser_role:
+                # JH TODO IDK
                 log_status("WARNING Untested feature")
                 endorser_did = await prompt("Enter Endorser's DID: ")
-                await diploma_agent.agent.admin_POST(
-                    f"/transactions/{diploma_agent.agent.connection_id}/set-endorser-info",
+                await company_agent.agent.admin_POST(
+                    f"/transactions/{company_agent.agent.connection_id}/set-endorser-info",
                     params={"endorser_did": endorser_did},
                 )
 
-            elif option in "wW" and diploma_agent.multitenant:
+            elif option in "wW" and company_agent.multitenant:
+                # JH TODO IDK
                 log_status("WARNING Untested feature")
                 target_wallet_name = await prompt("Enter wallet name: ")
                 include_subwallet_webhook = await prompt(
                     "(Y/N) Create sub-wallet webhook target: "
                 )
                 if include_subwallet_webhook.lower() == "y":
-                    created = await diploma_agent.agent.register_or_switch_wallet(
+                    created = await company_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
-                        webhook_port=diploma_agent.agent.get_new_webhook_port(),
+                        webhook_port=company_agent.agent.get_new_webhook_port(),
                         public_did=True,
-                        mediator_agent=diploma_agent.mediator_agent,
-                        endorser_agent=diploma_agent.endorser_agent,
-                        taa_accept=diploma_agent.taa_accept,
+                        mediator_agent=company_agent.mediator_agent,
+                        endorser_agent=company_agent.endorser_agent,
+                        taa_accept=company_agent.taa_accept,
                     )
                 else:
-                    created = await diploma_agent.agent.register_or_switch_wallet(
+                    created = await company_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
                         public_did=True,
-                        mediator_agent=diploma_agent.mediator_agent,
-                        endorser_agent=diploma_agent.endorser_agent,
-                        cred_type=diploma_agent.cred_type,
-                        taa_accept=diploma_agent.taa_accept,
+                        mediator_agent=company_agent.mediator_agent,
+                        endorser_agent=company_agent.endorser_agent,
+                        cred_type=company_agent.cred_type,
+                        taa_accept=company_agent.taa_accept,
                     )
                 # create a schema and cred def for the new wallet
                 # TODO check first in case we are switching between existing wallets
                 if created:
                     # TODO this fails because the new wallet doesn't get a public DID
-                    await diploma_agent.create_schema_and_cred_def(
-                        schema_name=diploma_schema_name,
-                        schema_attrs=diploma_schema_attrs,
+                    await company_agent.create_schema_and_cred_def(
+                        schema_name=job_schema_name,
+                        schema_attrs=job_schema_attrs,
                     )
 
             elif option in "tT":
@@ -375,14 +361,12 @@ async def main(args):
                 )
 
             elif option == "1":
-                log_status("1: attempting to offer credential")
-                if diploma_agent.agent.last_proof_ok:
-                    await offer_credential(diploma_agent, exchange_tracing)
+                if company_agent.agent.last_proof_ok:
+                    log_status("1: offering credential with student status")
+                    await offer_credential(company_agent, exchange_tracing)
                 else:
-                    log_status("1.1: cannot offer credential, no proof received or last proof failed")
-
+                    log_status("1.2: Diploma is necessary to be accepted to this position")
             elif option == "2":
-                # JH TODO add option to proof the diploma
                 log_status("#20 Request proof of enrollment from student")
                 #  presentation requests
                 log_status("invalidating previous proof")
@@ -393,17 +377,18 @@ async def main(args):
                 req_attrs = [
                     {
                         "name": "date",
-                        "restrictions": [{"schema_name": "enrollment schema"}]
+                        "restrictions": [{"schema_name": "diploma schema"}]
                     },
                     {
                         "name": "name",  # The name of the attribute
-                        "restrictions": [{"schema_name": "enrollment schema"}]
+                        "restrictions": [{"schema_name": "diploma schema"}]
                         # restriction for the attribute, in this case the schema it has to belong to
                     },
                     {
-                        "name": "degree",
-                        "restrictions": [{"schema_name": "enrollment schema"}]
-                    }
+                        "name": "degree",  # The name of the attribute
+                        "restrictions": [{"schema_name": "diploma schema"}]
+                        # restriction for the attribute, in this case the schema it has to belong to
+                    },
                 ]
                 # set the required predicates
                 # JH NOTES check what predicates actually do and how they differ from attributes
@@ -414,17 +399,11 @@ async def main(args):
                 date_format = "%Y%m%d"
                 req_preds = [
                     {
-                        "name": "start_date",
+                        "name": "grade",
                         "p_type": "<=",
-                        "p_value": int(d.strftime(date_format)),
-                        "restrictions": [{"schema_name": "enrollment schema"}],
+                        "p_value": int("3"),
+                        "restrictions": [{"schema_name": "diploma schema"}],
                     },
-                    {
-                        "name": "date",
-                        "p_type": "<=",
-                        "p_value": int(d.strftime(date_format)),
-                        "restrictions": [{"schema_name": "enrollment schema"}],
-                    }
 
                 ]
 
@@ -463,8 +442,8 @@ async def main(args):
             elif option == "3":
                 log_status("starting direct messaging to connected agent")
                 msg = await prompt("Enter message: ")
-                await diploma_agent.agent.admin_POST(
-                    f"/connections/{diploma_agent.agent.connection_id}/send-message",
+                await company_agent.agent.admin_POST(
+                    f"/connections/{company_agent.agent.connection_id}/send-message",
                     {"content": msg},
                 )
 
@@ -473,14 +452,14 @@ async def main(args):
                     "Creating a new invitation, please receive "
                     "and accept this invitation using Student agent"
                 )
-                await diploma_agent.generate_invitation(
+                await company_agent.generate_invitation(
                     display_invite=True,
                     display_qr=False,
-                    reuse_connections=diploma_agent.reuse_connections,
+                    reuse_connections=company_agent.reuse_connections,
                     wait=True,
                 )
 
-            elif option == "5" and diploma_agent.revocation:
+            elif option == "5" and company_agent.revocation:
                 # JH TODO actually test and use revocation
                 log_status("WARNING Untested feature")
                 rev_reg_id = (await prompt("Enter revocation registry ID: ")).strip()
@@ -489,13 +468,13 @@ async def main(args):
                               await prompt("Publish now? [Y/N]: ", default="N")
                           ).strip() in "yY"
                 try:
-                    await diploma_agent.agent.admin_POST(
+                    await company_agent.agent.admin_POST(
                         "/revocation/revoke",
                         {
                             "rev_reg_id": rev_reg_id,
                             "cred_rev_id": cred_rev_id,
                             "publish": publish,
-                            "connection_id": diploma_agent.agent.connection_id,
+                            "connection_id": company_agent.agent.connection_id,
                             # leave out thread_id, let aca-py generate
                             # "thread_id": "12345678-4444-4444-4444-123456789012",
                             "comment": "Revocation reason goes here ...",
@@ -504,13 +483,13 @@ async def main(args):
                 except ClientError:
                     pass
 
-            elif option == "6" and diploma_agent.revocation:
+            elif option == "6" and company_agent.revocation:
                 log_status("WARNING Untested feature")
                 try:
-                    resp = await diploma_agent.agent.admin_POST(
+                    resp = await company_agent.agent.admin_POST(
                         "/revocation/publish-revocations", {}
                     )
-                    diploma_agent.agent.log(
+                    company_agent.agent.log(
                         "Published revocations for {} revocation registr{} {}".format(
                             len(resp["rrid2crid"]),
                             "y" if len(resp["rrid2crid"]) == 1 else "ies",
@@ -519,22 +498,22 @@ async def main(args):
                     )
                 except ClientError:
                     pass
-            elif option == "7" and diploma_agent.revocation:
+            elif option == "7" and company_agent.revocation:
                 log_status("WARNING Untested feature")
                 try:
-                    resp = await diploma_agent.agent.admin_POST(
-                        f"/revocation/active-registry/{diploma_agent.cred_def_id}/rotate",
+                    resp = await company_agent.agent.admin_POST(
+                        f"/revocation/active-registry/{company_agent.cred_def_id}/rotate",
                         {},
                     )
-                    diploma_agent.agent.log(
+                    company_agent.agent.log(
                         "Rotated registries for {}. Decommissioned Registries: {}".format(
-                            diploma_agent.cred_def_id,
+                            company_agent.cred_def_id,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
                         )
                     )
                 except ClientError:
                     pass
-            elif option == "8" and diploma_agent.revocation:
+            elif option == "8" and company_agent.revocation:
                 log_status("WARNING Untested feature")
                 states = [
                     "init",
@@ -553,11 +532,11 @@ async def main(args):
                 if state not in states:
                     state = "active"
                 try:
-                    resp = await diploma_agent.agent.admin_GET(
+                    resp = await company_agent.agent.admin_GET(
                         "/revocation/registries/created",
                         params={"state": state},
                     )
-                    diploma_agent.agent.log(
+                    company_agent.agent.log(
                         "Registries (state = '{}'): {}".format(
                             state,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
@@ -567,14 +546,14 @@ async def main(args):
                     pass
 
         # JH TODO find out when show_timing is set and what this logging could be useful for (stems from agent container directly)
-        if diploma_agent.show_timing:
-            timing = await diploma_agent.agent.fetch_timing()
+        if company_agent.show_timing:
+            timing = await company_agent.agent.fetch_timing()
             if timing:
-                for line in diploma_agent.agent.format_timing(timing):
+                for line in company_agent.agent.format_timing(timing):
                     log_msg(line)
 
     finally:
-        terminated = await diploma_agent.terminate()
+        terminated = await company_agent.terminate()
 
     await asyncio.sleep(0.1)
 
@@ -582,20 +561,20 @@ async def main(args):
         os._exit(1)
 
 
-async def offer_credential(diploma_agent, exchange_tracing):
+async def offer_credential(gym_agent, exchange_tracing):
     # Helper function which calls the credential offer endpoint with static credentials packaged inside the agent implementation
     log_status("#13 Issue credential offer to X")
 
-    offer_request = diploma_agent.agent.generate_credential_offer(
-        diploma_agent.aip, diploma_agent.cred_def_id, exchange_tracing
+    offer_request = gym_agent.agent.generate_credential_offer(
+        gym_agent.aip, gym_agent.cred_def_id, exchange_tracing
     )
-    await diploma_agent.agent.admin_POST(
+    await gym_agent.agent.admin_POST(
         "/issue-credential-2.0/send-offer", offer_request
     )
 
 
 if __name__ == "__main__":
-    parser = arg_parser(ident="diploma", port=8070)
+    parser = arg_parser(ident="gym", port=8090)
     args = parser.parse_args()
 
     ENABLE_PYDEVD_PYCHARM = os.getenv("ENABLE_PYDEVD_PYCHARM", "").lower()
@@ -613,7 +592,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Faber(diploma) remote debugging to "
+                "GYM remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(

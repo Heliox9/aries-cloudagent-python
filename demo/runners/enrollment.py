@@ -85,7 +85,7 @@ class EnrollmentAgent(AriesAgent):
         self.cred_attrs[cred_def_id] = {
             "name": "Alice Smith",
             "date": d.strftime(date_format),
-            "degree": "Maths",
+            "degree": "CS",
             "birthdate_dateint": birth_date.strftime(date_format),
             "start_date": start_date.strftime(date_format),
             "end_date": end_date.strftime(date_format),
