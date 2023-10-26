@@ -126,66 +126,65 @@ class GymAgent(AriesAgent):
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
+    async def handle_present_proof_v2_0(self, message):
+        state = message["state"]
+        pres_ex_id = message["pres_ex_id"]
+        self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
-async def handle_present_proof_v2_0(self, message):
-    state = message["state"]
-    pres_ex_id = message["pres_ex_id"]
-    self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
+        if state == "presentation-received":
+            #  handle received presentations
+            self.log("#27 Process the proof provided by Student")
+            self.log("#28 Check if proof is valid")
+            proof = await self.admin_POST(
+                f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
+            )
 
-    if state == "presentation-received":
-        #  handle received presentations
-        self.log("#27 Process the proof provided by X")
-        self.log("#28 Check if proof is valid")
-        proof = await self.admin_POST(
-            f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
-        )
+            verified_value = proof['verified'].lower() == 'true'
+            self.log("Proof = ", verified_value)
 
-        verified_value = proof['verified'].lower() == 'true'
-        self.log("Proof = ", verified_value)
+            # if presentation is a enrollment schema (proof of education),
+            # check values received
+            pres_req = message["by_format"]["pres_request"]["indy"]
+            pres = message["by_format"]["pres"]["indy"]
+            is_proof_of_education = (
+                    pres_req["name"] == "Proof of Education"
+            )
+            self.log("Education = ", is_proof_of_education)
+            if is_proof_of_education and verified_value:
+                self.log("#28.1 Received proof of education, check claims")
 
-        # if presentation is a enrollment schema (proof of education),
-        # check values received
-        pres_req = message["by_format"]["pres_request"]["indy"]
-        pres = message["by_format"]["pres"]["indy"]
-        is_proof_of_education = (
-                pres_req["name"] == "Proof of Education"
-        )
-        # JH TODO this if statement is not being entered... FIX
-        if is_proof_of_education and verified_value:
-            self.log("#28.1 Received proof of education, check claims")
+                checks = []
+                additional = 0
+                # JH check claims in actual logic
+                for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                    log_attribute(referent, pres, attr_spec)
+                    # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
+                    name = attr_spec['name']
+                    if name == "name":
+                        checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                    else:
+                        self.log("attribute not checked")
+                        additional += 1
 
-            checks = []
-            additional = 0
-            # JH check claims in actual logic
-            for (referent, attr_spec) in pres_req["requested_attributes"].items():
-                log_attribute(referent, pres, attr_spec)
-                # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
-                name = attr_spec['name']
-                if name == "name":
-                    checks.append(check_attr_value(pres, referent, "Alice Smith"))
-                else:
-                    self.log("attribute not checked")
-                    additional += 1
+                for id_spec in pres["identifiers"]:
+                    # just print out the schema/cred def id's of presented claims
+                    self.log(f"schema_id: {id_spec['schema_id']}")
+                    self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
-            for id_spec in pres["identifiers"]:
-                # just print out the schema/cred def id's of presented claims
-                self.log(f"schema_id: {id_spec['schema_id']}")
-                self.log(f"cred_def_id {id_spec['cred_def_id']}")
-
-            self.log(checks)
-            self.last_proof_ok = (False not in checks)
-            self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
-            self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
-        else:
-            self.log("not validating proof values because it is not educational or not verified")
-            self.log(f"verified text: {proof['verified']} | value: {verified_value}")
-            # in case there are any other kinds of proofs received
-            self.log("#28.1 Received ", pres_req["name"])
+                self.log(checks)
+                self.last_proof_ok = (False not in checks)
+                self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
+                self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
+            else:
+                self.log("not validating proof values because it is not educational or not verified")
+                self.log(f"verified text: {proof['verified']} | value: {verified_value}")
+                # in case there are any other kinds of proofs received
+                self.log("#28.1 Received ", pres_req["name"])
+                self.last_proof_ok = False
+        elif state == "abandoned":
             self.last_proof_ok = False
-    elif state == "abandoned":
-        self.last_proof_ok = False
-        self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
-        self.log(f"check student log for failure messages on ZKP")
+            self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
+            self.log(f"check student log for failure messages on ZKP")
 
 
 def log_attribute(referent, pres, attr_spec):
@@ -360,7 +359,6 @@ async def main(args):
                 )
 
             elif option == "1":
-                # JH TODO rework to allow non student credential without proof
                 if gym_agent.agent.last_proof_ok:
                     log_status("1: offering credential with student status")
                     await offer_credential(gym_agent, exchange_tracing, True)
