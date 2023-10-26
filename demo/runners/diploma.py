@@ -169,7 +169,7 @@ class DiplomaAgent(AriesAgent):
 
                 checks = []
                 additional = 0
-                # JH TODO check claims in actual logic
+                # JH check claims in actual logic
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
                     log_attribute(referent, pres, attr_spec)
                     # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
@@ -187,8 +187,6 @@ class DiplomaAgent(AriesAgent):
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
-                # JH TODO change to validate immatriculation date in order to hand out membership for students
-
                 self.log(checks)
                 self.last_proof_ok = (False not in checks)
                 self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
@@ -199,6 +197,10 @@ class DiplomaAgent(AriesAgent):
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", pres_req["name"])
                 self.last_proof_ok = False
+        elif state == "abandoned":
+            self.last_proof_ok = False
+            self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
+            self.log(f"check student log for failure messages on ZKP")
 
 
 def log_attribute(referent, pres, attr_spec):
@@ -434,7 +436,10 @@ async def main(args):
                         f"0_{req_attr['name']}_uuid": req_attr
                         for req_attr in req_attrs
                     },
-                    "requested_predicates": {}
+                    "requested_predicates": {
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    }
                 }
 
                 # package indy request to be sent to the ACA-Py agent which can access the hyperledger
