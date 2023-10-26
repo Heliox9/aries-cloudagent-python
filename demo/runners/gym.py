@@ -41,7 +41,7 @@ logging.basicConfig(level=logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 
-class DiplomaAgent(AriesAgent):
+class GymAgent(AriesAgent):
     def __init__(
             self,
             ident: str,
@@ -57,7 +57,7 @@ class DiplomaAgent(AriesAgent):
             ident,
             http_port,
             admin_port,
-            prefix="Diploma",
+            prefix="Gym",
             no_auto=no_auto,
             endorser_role=endorser_role,
             revocation=revocation,
@@ -80,27 +80,27 @@ class DiplomaAgent(AriesAgent):
     def connection_ready(self):
         return self._connection_ready.done() and self._connection_ready.result()
 
-    def generate_credential_offer(self, aip, cred_def_id, exchange_tracing):
+    def generate_credential_offer(self, aip, cred_def_id, exchange_tracing, student_status):
+        d = datetime.date.today()
+        date_format = "%Y%m%d"
 
-        # JH TODO simplify to only use 2.0 and cleanup
+        # define attributes to send for credential
+        self.cred_attrs[cred_def_id] = {
+            "name": "Alice Smith",
+            "start_date": d.strftime(date_format),
+            "student": str(student_status),
+        }
+
+        cred_preview = {
+            "@type": CRED_PREVIEW_TYPE,
+            "attributes": [
+                {"name": n, "value": v}
+                for (n, v) in self.cred_attrs[cred_def_id].items()
+            ],
+        }
 
         if aip == 10:
-            # JH: Notes: everything here has to be a valid string
-            # define attributes to send for credential
-            self.cred_attrs[cred_def_id] = {
-                "name": "Alice Smith",
-                "date": "2018-05-28",
-                "degree": "Maths",
-                "grade": "1.0",
-            }
 
-            cred_preview = {
-                "@type": CRED_PREVIEW_TYPE,
-                "attributes": [
-                    {"name": n, "value": v}
-                    for (n, v) in self.cred_attrs[cred_def_id].items()
-                ],
-            }
             offer_request = {
                 "connection_id": self.connection_id,
                 "cred_def_id": cred_def_id,
@@ -112,20 +112,6 @@ class DiplomaAgent(AriesAgent):
             return offer_request
 
         elif aip == 20:
-            self.cred_attrs[cred_def_id] = {
-                "name": "Alice Smith",
-                "date": "2018-05-28",
-                "degree": "Maths",
-                "grade": "2.0",
-            }
-
-            cred_preview = {
-                "@type": CRED_PREVIEW_TYPE,
-                "attributes": [
-                    {"name": n, "value": v}
-                    for (n, v) in self.cred_attrs[cred_def_id].items()
-                ],
-            }
             offer_request = {
                 "connection_id": self.connection_id,
                 "comment": f"Offer on cred def id {cred_def_id}",
@@ -137,70 +123,69 @@ class DiplomaAgent(AriesAgent):
             return offer_request
 
 
-
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
-    async def handle_present_proof_v2_0(self, message):
-        state = message["state"]
-        pres_ex_id = message["pres_ex_id"]
-        self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
-        if state == "presentation-received":
-            #  handle received presentations
-            self.log("#27 Process the proof provided by X")
-            self.log("#28 Check if proof is valid")
-            proof = await self.admin_POST(
-                f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
-            )
+async def handle_present_proof_v2_0(self, message):
+    state = message["state"]
+    pres_ex_id = message["pres_ex_id"]
+    self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
-            verified_value = proof['verified'].lower() == 'true'
-            self.log("Proof = ", verified_value)
+    if state == "presentation-received":
+        #  handle received presentations
+        self.log("#27 Process the proof provided by X")
+        self.log("#28 Check if proof is valid")
+        proof = await self.admin_POST(
+            f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
+        )
 
-            # if presentation is a enrollment schema (proof of education),
-            # check values received
-            pres_req = message["by_format"]["pres_request"]["indy"]
-            pres = message["by_format"]["pres"]["indy"]
-            is_proof_of_education = (
-                    pres_req["name"] == "Proof of Education"
-            )
-            if is_proof_of_education and verified_value:
-                self.log("#28.1 Received proof of education, check claims")
+        verified_value = proof['verified'].lower() == 'true'
+        self.log("Proof = ", verified_value)
 
-                checks = []
-                additional = 0
-                # JH check claims in actual logic
-                for (referent, attr_spec) in pres_req["requested_attributes"].items():
-                    log_attribute(referent, pres, attr_spec)
-                    # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
-                    name = attr_spec['name']
-                    if name == "name":
-                        checks.append(check_attr_value(pres, referent, "Alice Smith"))
-                    elif name == "degree":
-                        checks.append(check_attr_value(pres, referent, "Maths"))
-                    else:
-                        self.log("attribute not checked")
-                        additional += 1
+        # if presentation is a enrollment schema (proof of education),
+        # check values received
+        pres_req = message["by_format"]["pres_request"]["indy"]
+        pres = message["by_format"]["pres"]["indy"]
+        is_proof_of_education = (
+                pres_req["name"] == "Proof of Education"
+        )
+        # JH TODO this if statement is not being entered... FIX
+        if is_proof_of_education and verified_value:
+            self.log("#28.1 Received proof of education, check claims")
 
-                for id_spec in pres["identifiers"]:
-                    # just print out the schema/cred def id's of presented claims
-                    self.log(f"schema_id: {id_spec['schema_id']}")
-                    self.log(f"cred_def_id {id_spec['cred_def_id']}")
+            checks = []
+            additional = 0
+            # JH check claims in actual logic
+            for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                log_attribute(referent, pres, attr_spec)
+                # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
+                name = attr_spec['name']
+                if name == "name":
+                    checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                else:
+                    self.log("attribute not checked")
+                    additional += 1
 
-                self.log(checks)
-                self.last_proof_ok = (False not in checks)
-                self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
-                self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
-            else:
-                self.log("not validating proof values because it is not educational or not verified")
-                self.log(f"verified text: {proof['verified']} | value: {verified_value}")
-                # in case there are any other kinds of proofs received
-                self.log("#28.1 Received ", pres_req["name"])
-                self.last_proof_ok = False
-        elif state == "abandoned":
+            for id_spec in pres["identifiers"]:
+                # just print out the schema/cred def id's of presented claims
+                self.log(f"schema_id: {id_spec['schema_id']}")
+                self.log(f"cred_def_id {id_spec['cred_def_id']}")
+
+            self.log(checks)
+            self.last_proof_ok = (False not in checks)
+            self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
+            self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
+        else:
+            self.log("not validating proof values because it is not educational or not verified")
+            self.log(f"verified text: {proof['verified']} | value: {verified_value}")
+            # in case there are any other kinds of proofs received
+            self.log("#28.1 Received ", pres_req["name"])
             self.last_proof_ok = False
-            self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
-            self.log(f"check student log for failure messages on ZKP")
+    elif state == "abandoned":
+        self.last_proof_ok = False
+        self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
+        self.log(f"check student log for failure messages on ZKP")
 
 
 def log_attribute(referent, pres, attr_spec):
@@ -232,62 +217,61 @@ def check_attr_value(pres, referent, expected_value):
 
 
 async def main(args):
-    diploma_agent = await create_agent_with_args(args, ident="diploma")
+    gym_agent = await create_agent_with_args(args, ident="gym")
 
     try:
         log_status(
             "#1 Provision an agent and wallet, get back configuration details"
             + (
-                f" (Wallet type: {diploma_agent.wallet_type})"
-                if diploma_agent.wallet_type
+                f" (Wallet type: {gym_agent.wallet_type})"
+                if gym_agent.wallet_type
                 else ""
             )
         )
-        agent = DiplomaAgent(
-            "diploma.agent",
-            diploma_agent.start_port,
-            diploma_agent.start_port + 1,
-            genesis_data=diploma_agent.genesis_txns,
-            genesis_txn_list=diploma_agent.genesis_txn_list,
-            no_auto=diploma_agent.no_auto,
-            tails_server_base_url=diploma_agent.tails_server_base_url,
-            revocation=diploma_agent.revocation,
-            timing=diploma_agent.show_timing,
-            multitenant=diploma_agent.multitenant,
-            mediation=diploma_agent.mediation,
-            wallet_type=diploma_agent.wallet_type,
-            seed=diploma_agent.seed,
-            aip=diploma_agent.aip,
-            endorser_role=diploma_agent.endorser_role,
-            anoncreds_legacy_revocation=diploma_agent.anoncreds_legacy_revocation,
+        agent = GymAgent(
+            "gym.agent",
+            gym_agent.start_port,
+            gym_agent.start_port + 1,
+            genesis_data=gym_agent.genesis_txns,
+            genesis_txn_list=gym_agent.genesis_txn_list,
+            no_auto=gym_agent.no_auto,
+            tails_server_base_url=gym_agent.tails_server_base_url,
+            revocation=gym_agent.revocation,
+            timing=gym_agent.show_timing,
+            multitenant=gym_agent.multitenant,
+            mediation=gym_agent.mediation,
+            wallet_type=gym_agent.wallet_type,
+            seed=gym_agent.seed,
+            aip=gym_agent.aip,
+            endorser_role=gym_agent.endorser_role,
+            anoncreds_legacy_revocation=gym_agent.anoncreds_legacy_revocation,
         )
 
-        diploma_schema_name = "diploma schema"
-        diploma_schema_attrs = [
+        membership_schema_name = "membership schema"
+        membership_schema_attrs = [
             "name",
-            "date",
-            "degree",
-            "grade",
+            "start_date",
+            "student",
         ]
-        if diploma_agent.cred_type == CRED_FORMAT_INDY:
-            diploma_agent.public_did = True
-            await diploma_agent.initialize(
+        if gym_agent.cred_type == CRED_FORMAT_INDY:
+            gym_agent.public_did = True
+            await gym_agent.initialize(
                 the_agent=agent,
-                schema_name=diploma_schema_name,
-                schema_attrs=diploma_schema_attrs,
-                create_endorser_agent=(diploma_agent.endorser_role == "author")
-                if diploma_agent.endorser_role
+                schema_name=membership_schema_name,
+                schema_attrs=membership_schema_attrs,
+                create_endorser_agent=(gym_agent.endorser_role == "author")
+                if gym_agent.endorser_role
                 else False,
             )
-        elif diploma_agent.cred_type == CRED_FORMAT_JSON_LD:
-            diploma_agent.public_did = True
-            await diploma_agent.initialize(the_agent=agent)
+        elif gym_agent.cred_type == CRED_FORMAT_JSON_LD:
+            gym_agent.public_did = True
+            await gym_agent.initialize(the_agent=agent)
         else:
-            raise Exception("Invalid credential type:" + diploma_agent.cred_type)
+            raise Exception("Invalid credential type:" + gym_agent.cred_type)
 
-        # generate an invitation for Alice
-        await diploma_agent.generate_invitation(
-            display_qr=False, display_invite=True, reuse_connections=diploma_agent.reuse_connections, wait=True
+        # generate an invitation for Student
+        await gym_agent.generate_invitation(
+            display_qr=False, display_invite=True, reuse_connections=gym_agent.reuse_connections, wait=True
         )
 
         exchange_tracing = False
@@ -297,23 +281,23 @@ async def main(args):
             "    (3) Send Message\n"
             "    (4) Create New Invitation\n"
         )
-        if diploma_agent.revocation:
+        if gym_agent.revocation:
             options += (
                 "    (5) Revoke Credential\n"
                 "    (6) Publish Revocations\n"
                 "    (7) Rotate Revocation Registry\n"
                 "    (8) List Revocation Registries\n"
             )
-        if diploma_agent.endorser_role and diploma_agent.endorser_role == "author":
+        if gym_agent.endorser_role and gym_agent.endorser_role == "author":
             log_status("WARNING Untested feature")
             options += "    (D) Set Endorser's DID\n"
-        if diploma_agent.multitenant:
+        if gym_agent.multitenant:
             log_status("WARNING Untested feature")
             options += "    (W) Create and/or Enable Wallet\n"
         options += "    (T) Toggle tracing on credential/proof exchange\n"
         options += "    (X) Exit?\n[1/2/3/4/{}{}T/X] ".format(
-            "5/6/7/8/" if diploma_agent.revocation else "",
-            "W/" if diploma_agent.multitenant else "",
+            "5/6/7/8/" if gym_agent.revocation else "",
+            "W/" if gym_agent.multitenant else "",
         )
         async for option in prompt_loop(options):
             if option is not None:
@@ -324,45 +308,47 @@ async def main(args):
                 # stops execution loop
                 break
 
-            elif option in "dD" and diploma_agent.endorser_role:
+            elif option in "dD" and gym_agent.endorser_role:
+                # JH TODO IDK
                 log_status("WARNING Untested feature")
                 endorser_did = await prompt("Enter Endorser's DID: ")
-                await diploma_agent.agent.admin_POST(
-                    f"/transactions/{diploma_agent.agent.connection_id}/set-endorser-info",
+                await gym_agent.agent.admin_POST(
+                    f"/transactions/{gym_agent.agent.connection_id}/set-endorser-info",
                     params={"endorser_did": endorser_did},
                 )
 
-            elif option in "wW" and diploma_agent.multitenant:
+            elif option in "wW" and gym_agent.multitenant:
+                # JH TODO IDK
                 log_status("WARNING Untested feature")
                 target_wallet_name = await prompt("Enter wallet name: ")
                 include_subwallet_webhook = await prompt(
                     "(Y/N) Create sub-wallet webhook target: "
                 )
                 if include_subwallet_webhook.lower() == "y":
-                    created = await diploma_agent.agent.register_or_switch_wallet(
+                    created = await gym_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
-                        webhook_port=diploma_agent.agent.get_new_webhook_port(),
+                        webhook_port=gym_agent.agent.get_new_webhook_port(),
                         public_did=True,
-                        mediator_agent=diploma_agent.mediator_agent,
-                        endorser_agent=diploma_agent.endorser_agent,
-                        taa_accept=diploma_agent.taa_accept,
+                        mediator_agent=gym_agent.mediator_agent,
+                        endorser_agent=gym_agent.endorser_agent,
+                        taa_accept=gym_agent.taa_accept,
                     )
                 else:
-                    created = await diploma_agent.agent.register_or_switch_wallet(
+                    created = await gym_agent.agent.register_or_switch_wallet(
                         target_wallet_name,
                         public_did=True,
-                        mediator_agent=diploma_agent.mediator_agent,
-                        endorser_agent=diploma_agent.endorser_agent,
-                        cred_type=diploma_agent.cred_type,
-                        taa_accept=diploma_agent.taa_accept,
+                        mediator_agent=gym_agent.mediator_agent,
+                        endorser_agent=gym_agent.endorser_agent,
+                        cred_type=gym_agent.cred_type,
+                        taa_accept=gym_agent.taa_accept,
                     )
                 # create a schema and cred def for the new wallet
                 # TODO check first in case we are switching between existing wallets
                 if created:
                     # TODO this fails because the new wallet doesn't get a public DID
-                    await diploma_agent.create_schema_and_cred_def(
-                        schema_name=diploma_schema_name,
-                        schema_attrs=diploma_schema_attrs,
+                    await gym_agent.create_schema_and_cred_def(
+                        schema_name=membership_schema_name,
+                        schema_attrs=membership_schema_attrs,
                     )
 
             elif option in "tT":
@@ -374,14 +360,26 @@ async def main(args):
                 )
 
             elif option == "1":
-                log_status("1: attempting to offer credential")
-                if diploma_agent.agent.last_proof_ok:
-                    await offer_credential(diploma_agent, exchange_tracing)
+                # JH TODO rework to allow non student credential without proof
+                if gym_agent.agent.last_proof_ok:
+                    log_status("1: offering credential with student status")
+                    await offer_credential(gym_agent, exchange_tracing, True)
                 else:
-                    log_status("1.1: cannot offer credential, no proof received or last proof failed")
-
+                    log_status(
+                        "1.1: Currently no proof of enrollment. Do you want to sign up for a membership without student status?")
+                    sub_options = (
+                        "    (1) Yes\n"
+                        "    (2) No\n"
+                    )
+                    async for sub_option in prompt_loop(sub_options):
+                        if sub_option == "1":
+                            log_status("1: offering credential without student status")
+                            await offer_credential(gym_agent, exchange_tracing, False)
+                            break
+                        elif sub_option == "2":
+                            log_status("1: cancelling credential offer process")
+                            break
             elif option == "2":
-                # JH TODO add option to proof the diploma
                 log_status("#20 Request proof of enrollment from student")
                 #  presentation requests
                 log_status("invalidating previous proof")
@@ -399,10 +397,6 @@ async def main(args):
                         "restrictions": [{"schema_name": "enrollment schema"}]
                         # restriction for the attribute, in this case the schema it has to belong to
                     },
-                    {
-                        "name": "degree",
-                        "restrictions": [{"schema_name": "enrollment schema"}]
-                    }
                 ]
                 # set the required predicates
                 # JH NOTES check what predicates actually do and how they differ from attributes
@@ -419,12 +413,11 @@ async def main(args):
                         "restrictions": [{"schema_name": "enrollment schema"}],
                     },
                     {
-                        "name": "date",
-                        "p_type": "<=",
+                        "name": "end_date",
+                        "p_type": ">=",
                         "p_value": int(d.strftime(date_format)),
                         "restrictions": [{"schema_name": "enrollment schema"}],
                     }
-
                 ]
 
                 # build the proof request necessary for the indy backend
@@ -462,8 +455,8 @@ async def main(args):
             elif option == "3":
                 log_status("starting direct messaging to connected agent")
                 msg = await prompt("Enter message: ")
-                await diploma_agent.agent.admin_POST(
-                    f"/connections/{diploma_agent.agent.connection_id}/send-message",
+                await gym_agent.agent.admin_POST(
+                    f"/connections/{gym_agent.agent.connection_id}/send-message",
                     {"content": msg},
                 )
 
@@ -472,14 +465,14 @@ async def main(args):
                     "Creating a new invitation, please receive "
                     "and accept this invitation using Student agent"
                 )
-                await diploma_agent.generate_invitation(
+                await gym_agent.generate_invitation(
                     display_invite=True,
                     display_qr=False,
-                    reuse_connections=diploma_agent.reuse_connections,
+                    reuse_connections=gym_agent.reuse_connections,
                     wait=True,
                 )
 
-            elif option == "5" and diploma_agent.revocation:
+            elif option == "5" and gym_agent.revocation:
                 # JH TODO actually test and use revocation
                 log_status("WARNING Untested feature")
                 rev_reg_id = (await prompt("Enter revocation registry ID: ")).strip()
@@ -488,13 +481,13 @@ async def main(args):
                               await prompt("Publish now? [Y/N]: ", default="N")
                           ).strip() in "yY"
                 try:
-                    await diploma_agent.agent.admin_POST(
+                    await gym_agent.agent.admin_POST(
                         "/revocation/revoke",
                         {
                             "rev_reg_id": rev_reg_id,
                             "cred_rev_id": cred_rev_id,
                             "publish": publish,
-                            "connection_id": diploma_agent.agent.connection_id,
+                            "connection_id": gym_agent.agent.connection_id,
                             # leave out thread_id, let aca-py generate
                             # "thread_id": "12345678-4444-4444-4444-123456789012",
                             "comment": "Revocation reason goes here ...",
@@ -503,13 +496,13 @@ async def main(args):
                 except ClientError:
                     pass
 
-            elif option == "6" and diploma_agent.revocation:
+            elif option == "6" and gym_agent.revocation:
                 log_status("WARNING Untested feature")
                 try:
-                    resp = await diploma_agent.agent.admin_POST(
+                    resp = await gym_agent.agent.admin_POST(
                         "/revocation/publish-revocations", {}
                     )
-                    diploma_agent.agent.log(
+                    gym_agent.agent.log(
                         "Published revocations for {} revocation registr{} {}".format(
                             len(resp["rrid2crid"]),
                             "y" if len(resp["rrid2crid"]) == 1 else "ies",
@@ -518,22 +511,22 @@ async def main(args):
                     )
                 except ClientError:
                     pass
-            elif option == "7" and diploma_agent.revocation:
+            elif option == "7" and gym_agent.revocation:
                 log_status("WARNING Untested feature")
                 try:
-                    resp = await diploma_agent.agent.admin_POST(
-                        f"/revocation/active-registry/{diploma_agent.cred_def_id}/rotate",
+                    resp = await gym_agent.agent.admin_POST(
+                        f"/revocation/active-registry/{gym_agent.cred_def_id}/rotate",
                         {},
                     )
-                    diploma_agent.agent.log(
+                    gym_agent.agent.log(
                         "Rotated registries for {}. Decommissioned Registries: {}".format(
-                            diploma_agent.cred_def_id,
+                            gym_agent.cred_def_id,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
                         )
                     )
                 except ClientError:
                     pass
-            elif option == "8" and diploma_agent.revocation:
+            elif option == "8" and gym_agent.revocation:
                 log_status("WARNING Untested feature")
                 states = [
                     "init",
@@ -552,11 +545,11 @@ async def main(args):
                 if state not in states:
                     state = "active"
                 try:
-                    resp = await diploma_agent.agent.admin_GET(
+                    resp = await gym_agent.agent.admin_GET(
                         "/revocation/registries/created",
                         params={"state": state},
                     )
-                    diploma_agent.agent.log(
+                    gym_agent.agent.log(
                         "Registries (state = '{}'): {}".format(
                             state,
                             json.dumps([r for r in resp["rev_reg_ids"]], indent=4),
@@ -566,14 +559,14 @@ async def main(args):
                     pass
 
         # JH TODO find out when show_timing is set and what this logging could be useful for (stems from agent container directly)
-        if diploma_agent.show_timing:
-            timing = await diploma_agent.agent.fetch_timing()
+        if gym_agent.show_timing:
+            timing = await gym_agent.agent.fetch_timing()
             if timing:
-                for line in diploma_agent.agent.format_timing(timing):
+                for line in gym_agent.agent.format_timing(timing):
                     log_msg(line)
 
     finally:
-        terminated = await diploma_agent.terminate()
+        terminated = await gym_agent.terminate()
 
     await asyncio.sleep(0.1)
 
@@ -581,20 +574,20 @@ async def main(args):
         os._exit(1)
 
 
-async def offer_credential(diploma_agent, exchange_tracing):
+async def offer_credential(gym_agent, exchange_tracing, student_status):
     # Helper function which calls the credential offer endpoint with static credentials packaged inside the agent implementation
     log_status("#13 Issue credential offer to X")
 
-    offer_request = diploma_agent.agent.generate_credential_offer(
-        diploma_agent.aip, diploma_agent.cred_def_id, exchange_tracing
+    offer_request = gym_agent.agent.generate_credential_offer(
+        gym_agent.aip, gym_agent.cred_def_id, exchange_tracing, student_status
     )
-    await diploma_agent.agent.admin_POST(
+    await gym_agent.agent.admin_POST(
         "/issue-credential-2.0/send-offer", offer_request
     )
 
 
 if __name__ == "__main__":
-    parser = arg_parser(ident="diploma", port=8070)
+    parser = arg_parser(ident="gym", port=8080)
     args = parser.parse_args()
 
     ENABLE_PYDEVD_PYCHARM = os.getenv("ENABLE_PYDEVD_PYCHARM", "").lower()
@@ -612,7 +605,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Faber(diploma) remote debugging to "
+                "GYM remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(

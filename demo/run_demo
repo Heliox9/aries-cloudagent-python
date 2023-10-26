@@ -108,7 +108,7 @@ do
 Usage:
    ./demo_run <agent> [OPTIONS]
 
-   - <agent> is one of student, enrollment, acme, performance, diploma.
+   - <agent> is one of student, enrollment, acme, performance, diploma, gym.
    - Options:
       --events - display on the terminal the webhook events from the ACA-Py agent.
       --timing - at the end of the run, display timing; relevant to the "performance" agent.
@@ -147,8 +147,12 @@ elif [ "$AGENT" = "diploma" ]; then
   AGENT_MODULE="diploma"
   AGENT_PORT=8070
   AGENT_PORT_RANGE=8070-8079
+elif [ "$AGENT" = "gym" ]; then
+  AGENT_MODULE="gym"
+  AGENT_PORT=8080
+  AGENT_PORT_RANGE=8080-8089
 else
-  echo "Please specify which agent you want to run. Choose from 'enrollment', 'student', 'acme', or 'performance', 'diploma'."
+  echo "Please specify which agent you want to run. Choose from 'enrollment', 'student', 'acme', or 'performance', 'diploma', 'gym'."
   exit 1
 fi
 
