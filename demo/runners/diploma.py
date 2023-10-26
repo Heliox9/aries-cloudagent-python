@@ -80,7 +80,6 @@ class DiplomaAgent(AriesAgent):
     def connection_ready(self):
         return self._connection_ready.done() and self._connection_ready.result()
 
-
     def generate_credential_offer(self, aip, cred_def_id, exchange_tracing):
 
         # JH TODO simplify to only use 2.0 and cleanup
@@ -113,51 +112,50 @@ class DiplomaAgent(AriesAgent):
             return offer_request
 
         elif aip == 20:
-                self.cred_attrs[cred_def_id] = {
-                    "name": "Alice Smith",
-                    "date": "2018-05-28",
-                    "degree": "Maths",
-                    "grade": "2.0",
-                }
+            self.cred_attrs[cred_def_id] = {
+                "name": "Alice Smith",
+                "date": "2018-05-28",
+                "degree": "Maths",
+                "grade": "2.0",
+            }
 
-                cred_preview = {
-                    "@type": CRED_PREVIEW_TYPE,
-                    "attributes": [
-                        {"name": n, "value": v}
-                        for (n, v) in self.cred_attrs[cred_def_id].items()
-                    ],
-                }
-                offer_request = {
-                    "connection_id": self.connection_id,
-                    "comment": f"Offer on cred def id {cred_def_id}",
-                    "auto_remove": False,
-                    "credential_preview": cred_preview,
-                    "filter": {"indy": {"cred_def_id": cred_def_id}},
-                    "trace": exchange_tracing,
-                }
-                return offer_request
+            cred_preview = {
+                "@type": CRED_PREVIEW_TYPE,
+                "attributes": [
+                    {"name": n, "value": v}
+                    for (n, v) in self.cred_attrs[cred_def_id].items()
+                ],
+            }
+            offer_request = {
+                "connection_id": self.connection_id,
+                "comment": f"Offer on cred def id {cred_def_id}",
+                "auto_remove": False,
+                "credential_preview": cred_preview,
+                "filter": {"indy": {"cred_def_id": cred_def_id}},
+                "trace": exchange_tracing,
+            }
+            return offer_request
 
 
 
         else:
             raise Exception(f"Error invalid AIP level: {self.aip}")
 
-
     async def handle_present_proof_v2_0(self, message):
-        # JH TODO cleanup and commenting
-        # log_status(f"poofing message: {message}")
         state = message["state"]
         pres_ex_id = message["pres_ex_id"]
         self.log(f"Presentation: state = {state}, pres_ex_id = {pres_ex_id}")
 
         if state == "presentation-received":
             #  handle received presentations
-            log_status("#27 Process the proof provided by X")
-            log_status("#28 Check if proof is valid")
+            self.log("#27 Process the proof provided by X")
+            self.log("#28 Check if proof is valid")
             proof = await self.admin_POST(
                 f"/present-proof-2.0/records/{pres_ex_id}/verify-presentation"
             )
-            self.log("Proof = ", proof["verified"])
+
+            verified_value = proof['verified'].lower() == 'true'
+            self.log("Proof = ", verified_value)
 
             # if presentation is a enrollment schema (proof of education),
             # check values received
@@ -166,36 +164,69 @@ class DiplomaAgent(AriesAgent):
             is_proof_of_education = (
                     pres_req["name"] == "Proof of Education"
             )
-            self.log(f"= {proof['verified']}")
-            self.log(f"='true' {proof['verified'].lower() == 'true'}")
-            if is_proof_of_education and proof["verified"]:
-                self.log("Proof = ", proof["verified"])
-                log_status("#28.1 Received proof of education, check claims")
+            if is_proof_of_education and verified_value:
+                self.log("#28.1 Received proof of education, check claims")
 
+                checks = []
+                additional = 0
                 # JH TODO check claims in actual logic
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
-                    if referent in pres['requested_proof']['revealed_attrs']:
-                        self.log(
-                            f"{attr_spec['name']}: "
-                            f"{pres['requested_proof']['revealed_attrs'][referent]['raw']}"
-                        )
+                    log_attribute(referent, pres, attr_spec)
+                    # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
+                    name = attr_spec['name']
+                    if name == "name":
+                        checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                    elif name == "degree":
+                        checks.append(check_attr_value(pres, referent, "Maths"))
                     else:
-                        self.log(
-                            f"{attr_spec['name']}: "
-                            "(attribute not revealed)"
-                        )
+                        self.log("attribute not checked")
+                        additional += 1
+
                 for id_spec in pres["identifiers"]:
                     # just print out the schema/cred def id's of presented claims
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
                 # JH TODO change to validate immatriculation date in order to hand out membership for students
-                log_status("setting proof value True")
-                self.last_proof_ok = True
+
+                self.log(checks)
+                self.last_proof_ok = (False not in checks)
+                self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
+                self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
             else:
-                log_status("not validating proof values because it is not educational or not verified")
+                self.log("not validating proof values because it is not educational or not verified")
+                self.log(f"verified text: {proof['verified']} | value: {verified_value}")
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", pres_req["name"])
+                self.last_proof_ok = False
+
+
+def log_attribute(referent, pres, attr_spec):
+    if referent in pres['requested_proof']['revealed_attrs']:
+        log_status(
+            f"{attr_spec['name']}: "
+            f"{pres['requested_proof']['revealed_attrs'][referent]['raw']}"
+        )
+    else:
+        log_status(
+            f"{attr_spec['name']}: "
+            "(attribute not revealed)"
+        )
+
+
+def check_attr_value(pres, referent, expected_value):
+    try:
+        actual = pres['requested_proof']['revealed_attrs'][referent]['raw']
+        match = (actual == expected_value)
+
+        if not match:
+            log_status(f"value check failed, expected: {expected_value} actual: {actual}")
+    except Exception as err:
+        match = False
+        log_status("Error occured while checking attribute value")
+        log_status(f"Error: \n{err}")
+
+    return match
 
 
 async def main(args):
@@ -355,14 +386,16 @@ async def main(args):
                 agent.last_proof_ok = False
 
                 # set the required attributes for proofing a provided VC
+                # JH NOTES the first attribute is not revealed by the base agent implementation
                 req_attrs = [
-                    {
-                        "name": "name", # The name of the attribute
-                        "restrictions": [{"schema_name": "enrollment schema"}] #restriction for the attribute, in this case the schema it has to belong to
-                    },
                     {
                         "name": "date",
                         "restrictions": [{"schema_name": "enrollment schema"}]
+                    },
+                    {
+                        "name": "name",  # The name of the attribute
+                        "restrictions": [{"schema_name": "enrollment schema"}]
+                        # restriction for the attribute, in this case the schema it has to belong to
                     },
                     {
                         "name": "degree",
@@ -371,8 +404,26 @@ async def main(args):
                 ]
                 # set the required predicates
                 # JH TODO check what predicates actually do and how they differ from attributes
-                # working theory: predicates are partials or what is usually referred to in zkp context
-                req_preds = []
+                # working theory: predicates are partials or what is usually referred to in zkp context (CORRECT https://yunxi-zhang-75627.medium.com/hyperledger-aries-aca-py-agents-setup-and-running-tutorials-part-vii-proof-request-reveal-and-8e3b86246578)
+
+                # sanity check start date and issue date before current date
+                d = datetime.date.today()
+                date_format = "%Y%m%d"
+                req_preds = [
+                    {
+                        "name": "start_date",
+                        "p_type": "<=",
+                        "p_value": int(d.strftime(date_format)),
+                        "restrictions": [{"schema_name": "enrollment schema"}],
+                    },
+                    {
+                        "name": "date",
+                        "p_type": "<=",
+                        "p_value": int(d.strftime(date_format)),
+                        "restrictions": [{"schema_name": "enrollment schema"}],
+                    }
+
+                ]
 
                 # build the proof request necessary for the indy backend
                 indy_proof_request = {

@@ -194,7 +194,6 @@ async def main(args):
             elif option == "5":
                 log_status("Print all current certs")
                 await student_agent.show_credentials()
-                # TODO actually implement
 
         if student_agent.show_timing:
             timing = await student_agent.agent.fetch_timing()

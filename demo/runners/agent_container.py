@@ -392,6 +392,7 @@ class AriesAgent(DemoAgent):
 
     async def handle_present_proof_v2_0(self, message):
         # JH TODO check if there is a way to always do proofing here
+        # JH NOTES This is called for the student when a proof is requested
         log_status("Agent level: handling proof aip 2.0")
         state = message.get("state")
         # self.log(f"full message: {message}")
