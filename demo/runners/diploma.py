@@ -82,7 +82,6 @@ class DiplomaAgent(AriesAgent):
 
     def generate_credential_offer(self, aip, cred_def_id, exchange_tracing):
 
-        # JH TODO simplify to only use 2.0 and cleanup
         d = datetime.date.today()
         date_format = "%Y%m%d"
         if aip == 10:
@@ -165,43 +164,86 @@ class DiplomaAgent(AriesAgent):
             is_proof_of_education = (
                     pres_req["name"] == "Proof of Education"
             )
-            if is_proof_of_education and verified_value:
-                self.log("#28.1 Received proof of education, check claims")
+            is_proof_of_diploma = (
+                    pres_req["name"] == "Proof of Diploma"
+            )
+            if verified_value:
+                if is_proof_of_education:
+                    self.log("#28.1 Received proof of education, check claims")
 
-                checks = []
-                additional = 0
-                # JH check claims in actual logic
-                for (referent, attr_spec) in pres_req["requested_attributes"].items():
-                    log_attribute(referent, pres, attr_spec)
-                    # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
-                    name = attr_spec['name']
-                    if name == "name":
-                        checks.append(check_attr_value(pres, referent, "Alice Smith"))
-                    elif name == "degree":
-                        checks.append(check_attr_value(pres, referent, "CS"))
-                    else:
-                        self.log("attribute not checked")
-                        additional += 1
+                    checks = []
+                    additional = 0
+                    # JH check claims in actual logic
+                    for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                        log_attribute(referent, pres, attr_spec)
+                        # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
+                        name = attr_spec['name']
+                        if name == "name":
+                            checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                        elif name == "degree":
+                            checks.append(check_attr_value(pres, referent, "CS"))
+                        else:
+                            self.log("attribute not checked")
+                            additional += 1
 
-                for id_spec in pres["identifiers"]:
-                    # just print out the schema/cred def id's of presented claims
-                    self.log(f"schema_id: {id_spec['schema_id']}")
-                    self.log(f"cred_def_id {id_spec['cred_def_id']}")
+                    for id_spec in pres["identifiers"]:
+                        # just print out the schema/cred def id's of presented claims
+                        self.log(f"schema_id: {id_spec['schema_id']}")
+                        self.log(f"cred_def_id {id_spec['cred_def_id']}")
 
-                self.log(checks)
-                self.last_proof_ok = (False not in checks)
-                self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
-                self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
+                    self.log(checks)
+                    self.last_proof_ok = (False not in checks)
+                    self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
+                    self.log(f"value check complete, setting proof value to {self.last_proof_ok}")
+                elif is_proof_of_diploma:
+                    self.log("#28.2 Received proof of Diploma, check claims")
+                    diploma_proof = False
+                    checks = []
+                    additional = 0
+                    # JH check claims in actual logic
+                    for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                        log_attribute(referent, pres, attr_spec)
+                        # NOTE: Switch case not possible due to python version 3.9 and switch case requires 3.10
+                        name = attr_spec['name']
+                        if name == "name":
+                            checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                        elif name == "degree":
+                            checks.append(check_attr_value(pres, referent, "CS"))
+                        elif name == "grade":
+                            checks.append(check_attr_value(pres, referent, "2"))
+                        else:
+                            self.log("attribute not checked")
+                            additional += 1
+
+                    for id_spec in pres["identifiers"]:
+                        # just print out the schema/cred def id's of presented claims
+                        self.log(f"schema_id: {id_spec['schema_id']}")
+                        self.log(f"cred_def_id {id_spec['cred_def_id']}")
+
+                    self.log(checks)
+                    diploma_proof = (False not in checks)
+                    self.log(f"checked {len(checks)} values ({additional} additional unchecked)")
+                    self.log(f"value check complete, diploma proof result: {diploma_proof}")
+                else:
+                    self.log("not validating proof values because it is not educational or not diploma")
+                    self.log(f"verified text: {proof['verified']}")
+                    # in case there are any other kinds of proofs received
+                    self.log("#28.1 Received ", pres_req["name"])
+
             else:
-                self.log("not validating proof values because it is not educational or not verified")
-                self.log(f"verified text: {proof['verified']} | value: {verified_value}")
-                # in case there are any other kinds of proofs received
-                self.log("#28.1 Received ", pres_req["name"])
-                self.last_proof_ok = False
+                self.log("not validating proof values because it is  not verified")
+                self.log(f"verified value: {verified_value}")
+                if is_proof_of_education:
+                    self.log(f"setting proof value false, because verification failed for education proofing")
+                    self.last_proof_ok = False
+
+
         elif state == "abandoned":
-            self.last_proof_ok = False
-            self.log(f"proofing abandoned (possibly failed ZKP) setting proof value to {self.last_proof_ok}")
+            self.log(f"proofing abandoned (possibly failed ZKP)")
             self.log(f"check student log for failure messages on ZKP")
+            if is_proof_of_education:
+                self.last_proof_ok = False
+                self.log(f"setting proof value to {self.last_proof_ok}")
 
 
 def log_attribute(referent, pres, attr_spec):
@@ -294,7 +336,8 @@ async def main(args):
         exchange_tracing = False
         options = (
             "    (1) Issue Credential\n"
-            "    (2) Send Proof Request\n"
+            "    (2) Send Proof Request (enrollment)\n"
+            "    (2a) Send Proof Request (diploma)\n"
             "    (3) Send Message\n"
             "    (4) Create New Invitation\n"
         )
@@ -382,7 +425,6 @@ async def main(args):
                     log_status("1.1: cannot offer credential, no proof received or last proof failed")
 
             elif option == "2":
-                # JH TODO add option to proof the diploma
                 log_status("#20 Request proof of enrollment from student")
                 #  presentation requests
                 log_status("invalidating previous proof")
@@ -459,6 +501,59 @@ async def main(args):
                 # log_status(f"proof reply: {proof_reply}")
 
                 log_status("proofing sequence complete. credential offer can be attempted")
+            elif option == "2a":
+                log_status("#20 Request diploma for from student")
+                #  presentation requests
+
+                # set the required attributes for proofing a provided VC
+                # JH NOTES the first attribute is not revealed by the base agent implementation
+                req_attrs = [
+                    {
+                        "name": "date",
+                        "restrictions": [{"schema_name": "diploma schema"}]
+                    },
+                    {
+                        "name": "name",  # The name of the attribute
+                        "restrictions": [{"schema_name": "diploma schema"}]
+                        # restriction for the attribute, in this case the schema it has to belong to
+                    },
+                    {
+                        "name": "degree",
+                        "restrictions": [{"schema_name": "diploma schema"}]
+                    },
+                    {
+                        "name": "grade",
+                        "restrictions": [{"schema_name": "diploma schema"}]
+                    }
+                ]
+
+                # build the proof request necessary for the indy backend
+                indy_proof_request = {
+                    "name": "Proof of Diploma",
+                    "version": "1.0",
+                    "nonce": str(uuid4().int),
+                    "requested_attributes": {
+                        f"0_{req_attr['name']}_uuid": req_attr
+                        for req_attr in req_attrs
+                    },
+                    "requested_predicates": {}
+                }
+
+                # package indy request to be sent to the ACA-Py agent which can access the hyperledger
+                proof_request_web_request = {
+                    "connection_id": agent.connection_id,
+                    "presentation_request": {"indy": indy_proof_request},
+                }
+
+                # send the request to our agent, which forwards it to the connected agent
+                # (based on the connection_id)
+                log_status("20.1 posting present proof 2.0")
+                proof_reply = await agent.admin_POST(
+                    "/present-proof-2.0/send-request",
+                    proof_request_web_request
+                )
+
+                log_status("proofing sequence complete (diploma)")
 
             elif option == "3":
                 log_status("starting direct messaging to connected agent")

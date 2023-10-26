@@ -135,7 +135,6 @@ class AcmeAgent(AriesAgent):
             if is_proof_of_education and proof["verified"]:
                 self.log("Proof = ", proof["verified"])
                 log_status("#28.1 Received proof of education, check claims")
-
                 # JH TODO check claims in actual logic
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
                     if referent in pres['requested_proof']['revealed_attrs']:
