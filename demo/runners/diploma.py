@@ -375,7 +375,6 @@ async def main(args):
 
             elif option == "1":
                 log_status("1: attempting to offer credential")
-                # JH TODO reset lasst proof ok at more points to ensure integrity (on new connection, after sending vc, etc)
                 if diploma_agent.agent.last_proof_ok:
                     await offer_credential(diploma_agent, exchange_tracing)
                 else:
@@ -405,7 +404,7 @@ async def main(args):
                     }
                 ]
                 # set the required predicates
-                # JH TODO check what predicates actually do and how they differ from attributes
+                # JH NOTES check what predicates actually do and how they differ from attributes
                 # working theory: predicates are partials or what is usually referred to in zkp context (CORRECT https://yunxi-zhang-75627.medium.com/hyperledger-aries-aca-py-agents-setup-and-running-tutorials-part-vii-proof-request-reveal-and-8e3b86246578)
 
                 # sanity check start date and issue date before current date
