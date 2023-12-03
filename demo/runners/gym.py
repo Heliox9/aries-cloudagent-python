@@ -162,6 +162,8 @@ class GymAgent(AriesAgent):
                     name = attr_spec['name']
                     if name == "name":
                         checks.append(check_attr_value(pres, referent, "Alice Smith"))
+                    elif name == "end_date":
+                        checks.append(check_attr_smaller(pres, referent, 20241224))
                     else:
                         self.log("attribute not checked")
                         additional += 1
@@ -207,6 +209,21 @@ def check_attr_value(pres, referent, expected_value):
 
         if not match:
             log_status(f"value check failed, expected: {expected_value} actual: {actual}")
+    except Exception as err:
+        match = False
+        log_status("Error occured while checking attribute value")
+        log_status(f"Error: \n{err}")
+
+    return match
+
+
+def check_attr_smaller(pres, referent, expected_value):
+    try:
+        actual = pres['requested_proof']['revealed_attrs'][referent]['raw']
+        match = (int(actual) < int(expected_value))
+
+        if not match:
+            log_status(f"value check failed, expected {expected_value} to be smaller than {actual}")
     except Exception as err:
         match = False
         log_status("Error occured while checking attribute value")
@@ -393,7 +410,14 @@ async def main(args):
                     {
                         "name": "name",  # The name of the attribute
                         "restrictions": [{"schema_name": "enrollment schema"}]
-                        # restriction for the attribute, in this case the schema it has to belong to
+                    },
+                    {
+                        "name": "start_date",  # The name of the attribute
+                        "restrictions": [{"schema_name": "enrollment schema"}]
+                    },
+                    {
+                        "name": "end_date",  # The name of the attribute
+                        "restrictions": [{"schema_name": "enrollment schema"}]
                     },
                 ]
                 # set the required predicates
@@ -404,18 +428,7 @@ async def main(args):
                 d = datetime.date.today()
                 date_format = "%Y%m%d"
                 req_preds = [
-                    {
-                        "name": "start_date",
-                        "p_type": "<=",
-                        "p_value": int(d.strftime(date_format)),
-                        "restrictions": [{"schema_name": "enrollment schema"}],
-                    },
-                    {
-                        "name": "end_date",
-                        "p_type": ">=",
-                        "p_value": int(d.strftime(date_format)),
-                        "restrictions": [{"schema_name": "enrollment schema"}],
-                    }
+
                 ]
 
                 # build the proof request necessary for the indy backend

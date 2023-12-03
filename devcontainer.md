@@ -23,10 +23,10 @@ Assumes von-network is running outside of VS Code and this container at the defa
 ```sh
 # open a terminal in VS Code...
 cd demo
-LEDGER_URL=http://host.docker.internal:9000 ./run_demo faber
+LEDGER_URL=http://host.docker.internal:9000 ./prototype faber
 # open a second terminal in VS Code...
 cd demo
-LEDGER_URL=http://host.docker.internal:9000 ./run_demo alice
+LEDGER_URL=http://host.docker.internal:9000 ./prototype alice
 # follow the script...
 ```
 

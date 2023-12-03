@@ -42,7 +42,7 @@ In your browser, go to the docker playground service [Play with Docker](https://
 ```bash
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python/demo
-LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./run_demo faber
+LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./prototype faber
 ```
 
 Now to start Alice's agent. Click the "+Add a new instance" button again to open another terminal session. Run the following commands to start Alice's agent:
@@ -50,7 +50,7 @@ Now to start Alice's agent. Click the "+Add a new instance" button again to open
 ```bash
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python/demo
-LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./run_demo alice
+LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./prototype alice
 ```
 
 Alice's agent is now running.
@@ -213,7 +213,7 @@ Note that when the controller starts up the agent, it prints out the ACA-Py star
 To enable support for revoking credentials, run the `faber` demo with the `--revocation` option:
 
 ```bash
-./run_demo faber --revocation
+./prototype faber --revocation
 ```
 
 Note that you don't specify this option with `alice` because it's only applicable for the credential `issuer` (who has to enable revocation when creating a credential definition, and explicitely revoke credentials as appropriate; alice doesn't have to do anything special when revocation is enabled).
@@ -275,7 +275,7 @@ This is described in [Endorser.md](Endorser.md)
 This runs using the older (and not recommended) indy-sdk libraries instead of [Aries Askar](:uhttps://github.com/hyperledger/aries-ask):
 
 ```bash
-./run_demo faber --wallet-type indy
+./prototype faber --wallet-type indy
 ```
 
 ### Mediation
@@ -283,7 +283,7 @@ This runs using the older (and not recommended) indy-sdk libraries instead of [A
 To enable mediation, run the `alice` or `faber` demo with the `--mediation` option:
 
 ```bash
-./run_demo faber --mediation
+./prototype faber --mediation
 ```
 
 This will start up a "mediator" agent with Alice or Faber and automatically set the alice/faber connection to use the mediator.
@@ -293,7 +293,7 @@ This will start up a "mediator" agent with Alice or Faber and automatically set 
 To enable multiple ledger mode, run the `alice` or `faber` demo with the `--multi-ledger` option:
 
 ```bash
-./run_demo faber --multi-ledger
+./prototype faber --multi-ledger
 ```
 
 The configuration file for setting up multiple ledgers (for the demo) can be found at `./demo/multiple_ledger_config.yml`.
@@ -303,7 +303,7 @@ The configuration file for setting up multiple ledgers (for the demo) can be fou
 To enable support for multi-tenancy, run the `alice` or `faber` demo with the `--multitenant` option:
 
 ```bash
-./run_demo faber --multitenant
+./prototype faber --multitenant
 ```
 
 (This option can be used with both (or either) `alice` and/or `faber`.)
@@ -391,7 +391,7 @@ This demo implements option #2 - each sub-wallet is configured with a separate c
 Run the demo (Alice or Faber) specifying *both* options:
 
 ```bash
-./run_demo faber --multitenant --mediation
+./prototype faber --multitenant --mediation
 ```
 
 This works exactly as the *vanilla* multi-tenancy, except that all connections are mediated.
@@ -422,7 +422,7 @@ A second version of the performance test can be run by adding the parameter `--r
 You can also run the demo against a postgres database using the following:
 
 ```bash
-./run_demo performance --arg-file demo/postgres-indy-args.yml
+./prototype performance --arg-file demo/postgres-indy-args.yml
 ```
 
 (Obvs you need to be running a postgres database - the command to start postgres is in the yml file provided above.)
@@ -432,13 +432,13 @@ You can tweak the number of credentials issued using the `--count` and `--batch`
 An example full set of options is:
 
 ```bash
-./run_demo performance --arg-file demo/postgres-indy-args.yml -c 10000 -b 10 --wallet-type askar
+./prototype performance --arg-file demo/postgres-indy-args.yml -c 10000 -b 10 --wallet-type askar
 ```
 
 Or:
 
 ```bash
-./run_demo performance --arg-file demo/postgres-indy-args.yml -c 10000 -b 10 --wallet-type indy
+./prototype performance --arg-file demo/postgres-indy-args.yml -c 10000 -b 10 --wallet-type indy
 ```
 
 ## Coding Challenge: Adding ACME

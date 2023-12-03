@@ -88,11 +88,11 @@ When `Exchange Tracing` is `ON`, all exchanges will include tracing.
 You can use the `ELK` stack in the [ELK Stack sub-directory](./elk-stack) as a target for trace events, just start the ELK stack using the docker-compose file and then in two separate bash shells, startup the demo as follows:
 
 ```bash
-DOCKER_NET=elknet TRACE_TARGET_URL=logstash:9700 ./run_demo faber --trace-http
+DOCKER_NET=elknet TRACE_TARGET_URL=logstash:9700 ./prototype faber --trace-http
 ```
 
 ```bash
-DOCKER_NET=elknet TRACE_TARGET_URL=logstash:9700 ./run_demo alice --trace-http
+DOCKER_NET=elknet TRACE_TARGET_URL=logstash:9700 ./prototype alice --trace-http
 ```
 
 ## Hooking into event messaging
@@ -100,5 +100,5 @@ DOCKER_NET=elknet TRACE_TARGET_URL=logstash:9700 ./run_demo alice --trace-http
 ACA-PY supports sending events to web hooks, which allows the demo agents to display them in the CLI. To also send them to another end point, use the `--webhook-url` option, which requires the `WEBHOOK_URL` environment variable. Configure an end point running on the docker host system, port *8888*, use the following:
 
 ```bash
-WEBHOOK_URL=host.docker.internal:8888 ./run_demo faber --webhook-url
+WEBHOOK_URL=host.docker.internal:8888 ./prototype faber --webhook-url
 ```

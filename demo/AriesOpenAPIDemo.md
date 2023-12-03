@@ -71,7 +71,7 @@ In a browser, go to the [Play with Docker](https://labs.play-with-docker.com/) h
 ```bash
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python/demo
-LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./run_demo faber --events --no-auto --bg
+LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./prototype faber --events --no-auto --bg
 
 ```
 
@@ -99,7 +99,7 @@ Now to start Alice's agent. Click the "+Add a new instance" button again to open
 ```bash
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python/demo
-LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./run_demo alice --events --no-auto --bg
+LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./prototype alice --events --no-auto --bg
 
 ```
 
@@ -137,7 +137,7 @@ In the first terminal window, clone the ACA-Py repo, change into the demo folder
 ```bash
 git clone https://github.com/hyperledger/aries-cloudagent-python
 cd aries-cloudagent-python/demo
-LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./run_demo faber --events --no-auto --bg
+LEDGER_URL=http://dev.greenlight.bcovrin.vonx.io ./prototype faber --events --no-auto --bg
 
 ```
 

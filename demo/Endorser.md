@@ -14,13 +14,13 @@ Start a VON Network instance and a Tails server:
 Start up Faber as Author (note the tails file size override, to allow testing of the revocation registry roll-over):
 
 ```bash
-TAILS_FILE_COUNT=5 ./run_demo faber --endorser-role author --revocation
+TAILS_FILE_COUNT=5 ./prototype faber --endorser-role author --revocation
 ```
 
 Start up Alice as normal:
 
 ```bash
-./run_demo alice
+./prototype alice
 ```
 
 You can run all of Faber's functions as normal - if you watch the console you will see that all ledger operations go through the endorser workflow.
@@ -40,13 +40,13 @@ Start a VON Network and a Tails server using the instructions above.
 Start up Faber as Endorser:
 
 ```bash
-TAILS_FILE_COUNT=5 ./run_demo faber --endorser-role endorser --revocation
+TAILS_FILE_COUNT=5 ./prototype faber --endorser-role endorser --revocation
 ```
 
 Start up Alice as Author:
 
 ```bash
-TAILS_FILE_COUNT=5 ./run_demo alice --endorser-role author --revocation
+TAILS_FILE_COUNT=5 ./prototype alice --endorser-role author --revocation
 ```
 
 Copy the invitation from Faber to Alice to complete the connection.
